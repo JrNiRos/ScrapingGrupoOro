@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+
+{% block title %}Resultados de Búsqueda - Buscador Grupo Oro{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="text-center mb-4">
+                <h1 class="display-5 fw-bold text-primary">
+                    <i class="fas fa-check-circle text-success"></i> Resultados Encontrados
+                </h1>
+                <p class="lead text-muted">
+                    Código Postal: <strong>{{ search_record.postal_code }}</strong> | 
+                    Tipo: <strong>{{ search_record.niche }}</strong>
+                </p>
+            </div>
+
+            <!-- Search Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Información de la Búsqueda
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <i class="fas fa-map-marker-alt fa-2x text-primary mb-2"></i>
+                            <h6>Código Postal</h6>
+                            <p class="fw-bold">{{ search_record.postal_code }}</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <i class="fas fa-building fa-2x text-warning mb-2"></i>
+                            <h6>Tipo de Negocio</h6>
+                            <p class="fw-bold">{{ search_record.niche }}</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <i class="fas fa-list fa-2x text-success mb-2"></i>
+                            <h6>Resultados</h6>
+                            <p class="fw-bold">{{ businesses.count }} negocios</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <i class="fas fa-calendar fa-2x text-info mb-2"></i>
+                            <h6>Fecha</h6>
+                            <p class="fw-bold">{{ search_record.created_at|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download Excel Button -->
+            <div class="text-center mb-4">
+                <a href="{% url 'download_search_excel' search_record.id %}" 
+                   class="btn btn-success btn-lg">
+                    <i class="fas fa-file-excel"></i> Descargar Excel
+                </a>
+                <a href="{% url 'business_search' %}" class="btn btn-outline-primary btn-lg ms-2">
+                    <i class="fas fa-search"></i> Nueva Búsqueda
+                </a>
+            </div>
+
+            <!-- Results -->
+            {% if businesses %}
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="mb-0">
+                            <i class="fas fa-list"></i> Lista de Negocios ({{ businesses.count }})
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th><i class="fas fa-building"></i> Nombre</th>
+                                        <th><i class="fas fa-phone"></i> Teléfono</th>
+                                        <th><i class="fas fa-envelope"></i> Email</th>
+                                        <th><i class="fas fa-map-marker-alt"></i> Dirección</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for business in businesses %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ business.name }}</strong>
+                                            </td>
+                                            <td>
+                                                {% if business.phone %}
+                                                    <a href="tel:{{ business.phone }}" class="text-decoration-none">
+                                                        <i class="fas fa-phone text-success"></i> {{ business.phone }}
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted">No disponible</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if business.email %}
+                                                    <a href="mailto:{{ business.email }}" class="text-decoration-none">
+                                                        <i class="fas fa-envelope text-primary"></i> {{ business.email }}
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted">No disponible</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if business.address %}
+                                                    <i class="fas fa-map-marker-alt text-warning"></i> {{ business.address }}
+                                                {% else %}
+                                                    <span class="text-muted">No disponible</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-search-minus fa-4x text-muted mb-3"></i>
+                        <h4>No se encontraron negocios</h4>
+                        <p class="text-muted">
+                            No se encontraron negocios para el código postal {{ search_record.postal_code }} 
+                            y el tipo {{ search_record.niche }}.
+                        </p>
+                        <a href="{% url 'business_search' %}" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Intentar otra búsqueda
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Statistics -->
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-pie fa-3x text-primary mb-3"></i>
+                            <h5>Estadísticas</h5>
+                            <p class="text-muted">
+                                Se encontraron <strong>{{ businesses.count }}</strong> negocios 
+                                en el código postal <strong>{{ search_record.postal_code }}</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-download fa-3x text-success mb-3"></i>
+                            <h5>Descarga</h5>
+                            <p class="text-muted">
+                                Descarga todos los resultados en formato Excel 
+                                para análisis posterior
+                            </p>
+                            <a href="{% url 'download_search_excel' search_record.id %}" 
+                               class="btn btn-success">
+                                <i class="fas fa-file-excel"></i> Descargar Excel
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Añadir efectos hover a las filas de la tabla
+    $('table tbody tr').hover(
+        function() {
+            $(this).addClass('table-active');
+        },
+        function() {
+            $(this).removeClass('table-active');
+        }
+    );
+});
+</script>
+{% endblock %}

@@ -1,28 +1,102 @@
 {% extends 'base.html' %}
 {% block title %}Grupo Oro – Buscador{% endblock %}
 {% block content %}
-  <section class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-    <div class="lg:col-span-7 space-y-4">
-      <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Buscador de Negocios por Ubicación</h1>
-      <p class="text-neutral-300 text-lg">Introduce una Localidad en España (ej. "Madrid", "Valencia"). Generaremos un Excel con nombre, teléfono y email (si existe), agrupado por barrios.</p>
-    </div>
+<div class="container my-5">
+  <!-- Header Section -->
+  <div class="text-center mb-5">
+    <h1 class="display-4 fw-bold text-primary">
+      <i class="fas fa-search-location"></i> Buscador Grupo Oro
+    </h1>
+    <p class="lead text-muted">
+      Encuentra negocios de manera eficiente por ubicación o código postal
+    </p>
+  </div>
 
-    <div class="lg:col-span-5">
-      <form id="scrape-form" onsubmit="return false;" class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
-        <label for="location" class="text-sm font-medium text-neutral-200">Ubicación</label>
-        <input id="location" type="text" placeholder="Ciudad o ubicación" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)]" />
-        
-        <div class="flex gap-3">
-          <button id="submit" class="inline-flex items-center justify-center rounded-xl bg-[var(--gold)] px-5 py-3 text-base font-semibold text-black shadow-sm hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold)]" type="submit">Buscar y generar Excel</button>
-          <button id="reset" class="inline-flex items-center justify-center rounded-xl border border-white/15 px-5 py-3 text-base font-semibold text-neutral-200 hover:bg-white/10 hidden" type="button">Nueva búsqueda</button>
+  <!-- Options Cards -->
+  <div class="row justify-content-center mb-5">
+    <div class="col-lg-6 mb-4">
+      <div class="card h-100 business-card">
+        <div class="card-header text-center">
+          <i class="fas fa-map-marked-alt fa-3x mb-3"></i>
+          <h3>Búsqueda por Ubicación</h3>
         </div>
-        <div id="status" class="text-sm text-neutral-300"></div>
-        <div id="download"></div>
-      </form>
+        <div class="card-body text-center">
+          <p class="card-text">
+            Busca negocios introduciendo una ciudad o ubicación en España. 
+            Genera un Excel con datos organizados por barrios.
+          </p>
+          <a href="#location-search" class="btn btn-primary btn-lg">
+            <i class="fas fa-search"></i> Buscar por Ubicación
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-6 mb-4">
+      <div class="card h-100 business-card">
+        <div class="card-header text-center">
+          <i class="fas fa-mail-bulk fa-3x mb-3"></i>
+          <h3>Búsqueda por Código Postal</h3>
+        </div>
+        <div class="card-body text-center">
+          <p class="card-text">
+            Búsqueda específica por código postal y tipo de negocio. 
+            Ideal para encontrar negocios particulares en una zona específica.
+          </p>
+          <a href="{% url 'business_search' %}" class="btn btn-success btn-lg">
+            <i class="fas fa-filter"></i> Buscar por Código Postal
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Original Location Search -->
+  <section id="location-search" class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="mb-0">
+            <i class="fas fa-map-marked-alt"></i> Búsqueda por Ubicación
+          </h3>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-4">
+            Introduce una Localidad en España (ej. "Madrid", "Valencia"). 
+            Generaremos un Excel con nombre, teléfono y email (si existe), agrupado por barrios.
+          </p>
+
+          <form id="scrape-form" onsubmit="return false;">
+            <div class="mb-3">
+              <label for="location" class="form-label">
+                <i class="fas fa-map-marker-alt"></i> Ubicación
+              </label>
+              <input id="location" type="text" placeholder="Ciudad o ubicación" 
+                     class="form-control" />
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button id="submit" class="btn btn-primary btn-lg" type="submit">
+                <i class="fas fa-search"></i> Buscar y generar Excel
+              </button>
+              <button id="reset" class="btn btn-outline-secondary hidden" type="button">
+                <i class="fas fa-redo"></i> Nueva búsqueda
+              </button>
+            </div>
+            
+            <div id="status" class="mt-3 text-center"></div>
+            <div id="download" class="mt-3 text-center"></div>
+          </form>
+        </div>
+      </div>
     </div>
   </section>
+</div>
 
-  <script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
     const form = document.getElementById('scrape-form');
     const locationInput = document.getElementById('location');
     const submitBtn = document.getElementById('submit');
@@ -32,26 +106,26 @@
 
     function setLoading(isLoading) {
       submitBtn.disabled = isLoading;
-      submitBtn.textContent = isLoading ? 'Procesando...' : 'Buscar y generar Excel';
+      submitBtn.innerHTML = isLoading ? '<i class="fas fa-spinner fa-spin"></i> Procesando...' : '<i class="fas fa-search"></i> Buscar y generar Excel';
     }
 
     resetBtn.addEventListener('click', () => {
       locationInput.value = '';
-      statusEl.textContent = '';
+      statusEl.innerHTML = '';
       downloadEl.innerHTML = '';
       resetBtn.classList.add('hidden');
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Buscar y generar Excel';
+      submitBtn.innerHTML = '<i class="fas fa-search"></i> Buscar y generar Excel';
     });
 
     form.addEventListener('submit', async () => {
       const location = locationInput.value.trim();
       if (!location) {
-        statusEl.textContent = 'Introduce una ubicación';
+        statusEl.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Introduce una ubicación</div>';
         return;
       }
       setLoading(true);
-      statusEl.textContent = 'Buscando datos y generando Excel...';
+      statusEl.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Buscando datos y generando Excel...</div>';
       downloadEl.innerHTML = '';
       try {
         const resp = await fetch('/scrape/', {
@@ -70,14 +144,14 @@
         const data = await resp.json();
         await pollStatus(data.job_id);
       } catch (e) {
-        statusEl.textContent = 'Error: ' + (e?.message || 'desconocido');
+        statusEl.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Error: ' + (e?.message || 'desconocido') + '</div>';
       } finally {
         setLoading(false);
       }
     });
 
     async function pollStatus(jobId) {
-      statusEl.textContent = 'Procesando… esto puede tardar unos segundos';
+      statusEl.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Procesando… esto puede tardar unos segundos</div>';
       downloadEl.innerHTML = '';
       resetBtn.classList.add('hidden');
       const start = Date.now();
@@ -87,24 +161,24 @@
           if (r.status === 404) { await sleep(1200); continue; }
           const s = await r.json();
           if (s.status === 'done') {
-            statusEl.textContent = '¡Listo! Descarga tu Excel en el enlace:';
-            downloadEl.innerHTML = `<a class="inline-flex items-center justify-center rounded-lg bg-black text-white px-4 py-2.5 text-sm font-semibold shadow-sm hover:bg-neutral-800" href="${s.download_url}">Descargar Excel</a>`;
+            statusEl.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> ¡Listo! Descarga tu Excel en el enlace:</div>';
+            downloadEl.innerHTML = `<a class="btn btn-success btn-lg" href="${s.download_url}"><i class="fas fa-download"></i> Descargar Excel</a>`;
             resetBtn.classList.remove('hidden');
             return;
           } else if (s.status === 'error') {
-            statusEl.textContent = 'Error en el proceso: ' + (s.error || 'desconocido');
+            statusEl.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Error en el proceso: ' + (s.error || 'desconocido') + '</div>';
             resetBtn.classList.remove('hidden');
             return;
           } else {
-            statusEl.textContent = 'Procesando…';
+            statusEl.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Procesando…</div>';
           }
           await sleep(1200);
         } catch (e) {
-          statusEl.textContent = 'Error de red. Reintentando…';
+          statusEl.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Error de red. Reintentando…</div>';
           await sleep(1500);
         }
       }
-      statusEl.textContent = 'Tiempo de espera agotado. Intenta de nuevo más tarde.';
+      statusEl.innerHTML = '<div class="alert alert-warning"><i class="fas fa-clock"></i> Tiempo de espera agotado. Intenta de nuevo más tarde.</div>';
       resetBtn.classList.remove('hidden');
     }
 

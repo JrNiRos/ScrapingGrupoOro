@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block title %}Buscar Negocios - Buscador Grupo Oro{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="text-center mb-5">
+                <h1 class="display-4 fw-bold text-primary">
+                    <i class="fas fa-search-location"></i> Buscar Negocios
+                </h1>
+                <p class="lead text-muted">
+                    Encuentra negocios específicos por código postal y tipo de actividad
+                </p>
+            </div>
+
+            <!-- Search Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="fas fa-filter"></i> Filtros de Búsqueda
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="searchForm" method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.postal_code.id_for_label }}" class="form-label">
+                                    <i class="fas fa-mail-bulk"></i> Código Postal
+                                </label>
+                                {{ form.postal_code }}
+                                {% if form.postal_code.help_text %}
+                                    <div class="form-text">{{ form.postal_code.help_text }}</div>
+                                {% endif %}
+                                {% if form.postal_code.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.postal_code.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.niche.id_for_label }}" class="form-label">
+                                    <i class="fas fa-building"></i> Tipo de Negocio
+                                </label>
+                                {{ form.niche }}
+                                {% if form.niche.help_text %}
+                                    <div class="form-text">{{ form.niche.help_text }}</div>
+                                {% endif %}
+                                {% if form.niche.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.niche.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" id="searchBtn">
+                                <i class="fas fa-search"></i> Buscar Negocios
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Search Status -->
+            <div id="searchStatus" class="mt-4" style="display: none;">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="loading-spinner mx-auto mb-3"></div>
+                        <h5>Buscando negocios...</h5>
+                        <p class="text-muted">Esto puede tomar unos momentos. Por favor, espera.</p>
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Searches -->
+            {% if recent_searches %}
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h4 class="mb-0">
+                            <i class="fas fa-history"></i> Búsquedas Recientes
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for search in recent_searches %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="business-card card h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">
+                                                <i class="fas fa-map-marker-alt"></i> 
+                                                {{ search.postal_code }}
+                                            </h6>
+                                            <p class="card-text">
+                                                <i class="fas fa-tag"></i> {{ search.niche }}<br>
+                                                <i class="fas fa-calendar"></i> {{ search.created_at|date:"d/m/Y H:i" }}<br>
+                                                <i class="fas fa-list"></i> {{ search.results_count }} resultados
+                                            </p>
+                                            {% if search.excel_file %}
+                                                <a href="{% url 'download_search_excel' search.id %}" 
+                                                   class="btn btn-outline-success btn-sm">
+                                                    <i class="fas fa-download"></i> Descargar Excel
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Help Section -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-question-circle"></i> ¿Cómo funciona?
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="p-3">
+                                <i class="fas fa-map-marked-alt fa-3x text-primary mb-3"></i>
+                                <h5>1. Código Postal</h5>
+                                <p class="text-muted">Introduce un código postal español válido de 5 dígitos</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="p-3">
+                                <i class="fas fa-filter fa-3x text-warning mb-3"></i>
+                                <h5>2. Tipo de Negocio</h5>
+                                <p class="text-muted">Selecciona el tipo de negocio que buscas</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="p-3">
+                                <i class="fas fa-file-excel fa-3x text-success mb-3"></i>
+                                <h5>3. Descargar Resultados</h5>
+                                <p class="text-muted">Recibe un archivo Excel con todos los datos</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#searchForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        // Mostrar estado de búsqueda
+        $('#searchStatus').show();
+        $('#searchBtn').prop('disabled', true);
+        
+        // Enviar formulario via AJAX
+        $.ajax({
+            url: '{% url "business_search" %}',
+            method: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                if (response.job_id) {
+                    // Redirigir a página de resultados
+                    window.location.href = `/search-results/${response.job_id}/`;
+                } else if (response.errors) {
+                    // Mostrar errores
+                    alert('Error en el formulario: ' + JSON.stringify(response.errors));
+                    $('#searchStatus').hide();
+                    $('#searchBtn').prop('disabled', false);
+                }
+            },
+            error: function(xhr) {
+                alert('Error al realizar la búsqueda');
+                $('#searchStatus').hide();
+                $('#searchBtn').prop('disabled', false);
+            }
+        });
+    });
+    
+    // Validación en tiempo real del código postal
+    $('#id_postal_code').on('input', function() {
+        let value = $(this).val();
+        if (value.length === 5 && /^\d+$/.test(value)) {
+            $(this).removeClass('is-invalid').addClass('is-valid');
+        } else if (value.length > 0) {
+            $(this).removeClass('is-valid').addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-valid is-invalid');
+        }
+    });
+});
+</script>
+{% endblock %}

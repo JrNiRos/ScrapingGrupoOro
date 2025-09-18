@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}Buscando Negocios - Buscador Grupo Oro{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if job_status == 'running' %}
+                        <!-- Loading State -->
+                        <div class="loading-spinner mx-auto mb-4"></div>
+                        <h3 class="text-primary">
+                            <i class="fas fa-search"></i> Buscando Negocios
+                        </h3>
+                        <p class="text-muted">
+                            Estamos buscando negocios en la base de datos. 
+                            Esto puede tomar unos momentos...
+                        </p>
+                        
+                        <div class="progress mb-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Procesando:</strong> Analizando código postal y buscando negocios del tipo seleccionado.
+                        </div>
+                        
+                    {% elif job_status == 'error' %}
+                        <!-- Error State -->
+                        <div class="mb-4">
+                            <i class="fas fa-exclamation-triangle fa-4x text-danger"></i>
+                        </div>
+                        <h3 class="text-danger">
+                            <i class="fas fa-times-circle"></i> Error en la Búsqueda
+                        </h3>
+                        <p class="text-muted">
+                            Ha ocurrido un error durante la búsqueda:
+                        </p>
+                        
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Error:</strong> {{ job_error }}
+                        </div>
+                        
+                    {% elif job_status == 'pending' %}
+                        <!-- Pending State -->
+                        <div class="mb-4">
+                            <i class="fas fa-clock fa-4x text-warning"></i>
+                        </div>
+                        <h3 class="text-warning">
+                            <i class="fas fa-hourglass-half"></i> Búsqueda Pendiente
+                        </h3>
+                        <p class="text-muted">
+                            Tu búsqueda está en cola. Se procesará en breve...
+                        </p>
+                        
+                        <div class="progress mb-3">
+                            <div class="progress-bar progress-bar-striped" 
+                                 role="progressbar" style="width: 50%"></div>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Action Buttons -->
+                    <div class="mt-4">
+                        {% if job_status == 'error' %}
+                            <a href="{% url 'business_search' %}" class="btn btn-primary">
+                                <i class="fas fa-redo"></i> Intentar de Nuevo
+                            </a>
+                        {% else %}
+                            <a href="{% url 'business_search' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> Volver a Búsqueda
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    {% if job_status != 'error' %}
+        // Auto-refresh cada 3 segundos si no hay error
+        setTimeout(function() {
+            window.location.reload();
+        }, 3000);
+    {% endif %}
+});
+</script>
+{% endblock %}

@@ -1,55 +1,154 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Grupo Oro{% endblock %}</title>
-  {% load static %}
-  <link rel="icon" type="image/png" href="{% static 'favicon/img/GrupoOroIcono_round.png' %}">
-  <link rel="apple-touch-icon" href="{% static 'favicon/img/GrupoOroIcono_round.png' %}">
-  <link rel="shortcut icon" href="{% static 'favicon/favicon.ico' %}">
-  <link rel="icon" href="{% static 'favicon/favicon.ico' %}" sizes="any">
-  <link rel="icon" type="image/png" href="{% static 'favicon/icon-512.png' %}" sizes="512x512">
-  <link rel="icon" type="image/png" href="{% static 'favicon/icon-192.png' %}" sizes="192x192">
-  <link rel="icon" type="image/png" href="{% static 'favicon/icon-32.png' %}" sizes="32x32">
-  <link rel="icon" type="image/png" href="{% static 'favicon/icon-16.png' %}" sizes="16x16">
-  <link rel="manifest" href="{% static 'favicon/site.webmanifest' %}">
-  <meta name="theme-color" content="#d4af37">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root { --bg:#0f0f0f; --text:#e5e5e5; --gold:#d4af37; --border:#3a3a3a; }
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-  </style>
-  {% block head %}{% endblock %}
-  {% csrf_token %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Buscador de Negocios Grupo Oro{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+            color: #FFD700 !important;
+        }
+        
+        .btn-primary {
+            background-color: #FFD700;
+            border-color: #FFD700;
+            color: #000;
+            font-weight: bold;
+        }
+        
+        .btn-primary:hover {
+            background-color: #FFC107;
+            border-color: #FFC107;
+            color: #000;
+        }
+        
+        .card {
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #FFD700, #FFC107);
+            color: #000;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: bold;
+        }
+        
+        .form-control:focus {
+            border-color: #FFD700;
+            box-shadow: 0 0 0 0.2rem rgba(255, 215, 0, 0.25);
+        }
+        
+        .bg-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .footer {
+            background-color: #343a40;
+            color: white;
+            margin-top: auto;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #FFD700;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .business-card {
+            transition: transform 0.2s;
+        }
+        
+        .business-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .alert-custom {
+            border-radius: 10px;
+            border: none;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
 </head>
-<body class="min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col">
-  <header class="border-b border-[var(--border)] bg-[color:rgba(15,15,15,0.7)] backdrop-blur supports-[backdrop-filter]:bg-[color:rgba(15,15,15,0.5)]">
-    <div class="max-w-5xl mx-auto px-6">
-      <div class="h-20 flex items-center justify-between">
-        <a href="/" class="inline-flex items-center gap-3 group">
-          <img src="{% static 'favicon/img/GrupoOroIcono_round.png' %}" alt="Grupo Oro" class="h-9 w-9 rounded-md shadow-sm" />
-          <span class="text-3xl font-semibold tracking-wide text-[var(--text)]">Grupo <span class="text-[var(--gold)]">Oro</span></span>
-        </a>
-      </div>
-    </div>
-  </header>
+<body class="d-flex flex-column min-vh-100">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-gradient">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <i class="fas fa-search"></i> Buscador Grupo Oro
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">
+                            <i class="fas fa-home"></i> Inicio
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'business_search' %}">
+                            <i class="fas fa-building"></i> Buscar Negocios
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
-  <main class="flex-1">
-    <div class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
-      {% block content %}{% endblock %}
-    </div>
-  </main>
+    <!-- Messages -->
+    {% if messages %}
+        <div class="container mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show alert-custom" role="alert">
+                    <i class="fas fa-info-circle"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 
-  <footer class="border-t border-[var(--border)] bg-[var(--bg)]">
-    <div class="max-w-5xl mx-auto px-6 py-8 text-sm text-neutral-400">
-      © 2025 Grupo Oro – Todos los derechos reservados
-    </div>
-  </footer>
+    <!-- Main Content -->
+    <main class="flex-grow-1">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-0">
+                <i class="fas fa-copyright"></i> 2024 Buscador Grupo Oro - 
+                <i class="fas fa-envelope"></i> contacto@grupooro.com
+            </p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    {% block extra_js %}{% endblock %}
 </body>
 </html>
-
-
