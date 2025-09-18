@@ -130,3 +130,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Third-party API keys
 # For producción, lee desde variables de entorno.
 SERPER_API_KEY = '0a1486d9f45d70994a35d75425d9d1147cefb670'
+
+# Custom user model
+AUTH_USER_MODEL = 'myapp.User'
+
+# Login settings
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
+
+# Encryption keys for django-fernet-fields (rotate safely in producción)
+import os
+FERNET_KEYS = [
+    os.environ.get('FERNET_PRIMARY_KEY', 'dev-fernet-please-change-this-key------------------')
+]

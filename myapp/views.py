@@ -4,6 +4,7 @@ from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.conf import settings
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.contrib.auth.decorators import login_required
 import uuid
 import json
 import os
@@ -11,34 +12,122 @@ import time
 import requests
 from openpyxl import Workbook
 from threading import Thread
+from django import forms
+from django.contrib.auth import login, authenticate
+from django.contrib.auth import logout
+from .models import User, Search
 
 # In-memory job registry (simple demo)
 JOBS = {}
 
 
 @ensure_csrf_cookie
+@login_required
 def home(request):
+    if not (getattr(request.user, 'api_key', None)):
+        from django.shortcuts import redirect
+        return redirect('profile')
     return render(request, "myapp/home.html")
 
 
+class RegisterForm(forms.ModelForm):
+    password1 = forms.CharField(label="Contraseña", widget=forms.PasswordInput)
+    password2 = forms.CharField(label="Confirmar contraseña", widget=forms.PasswordInput)
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "phone_number", "api_key"]
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email").lower()
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError("Este email ya está registrado")
+        return email
+
+    def clean(self):
+        cleaned = super().clean()
+        p1 = cleaned.get("password1")
+        p2 = cleaned.get("password2")
+        if p1 and p2 and p1 != p2:
+            self.add_error("password2", "Las contraseñas no coinciden")
+        return cleaned
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password1"])
+        if commit:
+            user.save()
+        return user
+
+
+def register(request):
+    if request.method == "POST":
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            # Autologin opcional tras registro
+            login(request, user)
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({"ok": True, "redirect": "/"})
+            from django.shortcuts import redirect
+            return redirect("home")
+    else:
+        form = RegisterForm()
+    return render(request, "auth/register.html", {"form": form})
+
+
+def logout_view(request):
+    """Logout vía GET y redirige al login."""
+    logout(request)
+    from django.shortcuts import redirect
+    return redirect('login')
+
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "phone_number", "api_key"]
+
+
+@login_required
+def profile(request):
+    if request.method == "POST":
+        form = ProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            from django.shortcuts import redirect
+            return redirect('home')
+    else:
+        form = ProfileForm(instance=request.user)
+    return render(request, "auth/profile.html", {"form": form})
+
+
 @require_POST
+@login_required
 def start_scrape(request):
     # Expect JSON body: {"location": "Madrid"}
     try:
         body = json.loads(request.body.decode("utf-8"))
-        location = body.get("location", "").strip()
-        # default to max allowed by Serper single request
+        postal_code = (body.get("postal_code") or "").strip()
+        category = (body.get("category") or "").strip()
         limit = 100
     except Exception:
         return HttpResponseBadRequest("JSON inválido")
 
-    if not location:
-        return HttpResponseBadRequest("La ubicación es obligatoria")
+    if not postal_code or not category:
+        return HttpResponseBadRequest("El código postal y la categoría son obligatorios")
+    import re
+    if not re.fullmatch(r"\d{5}", postal_code):
+        return HttpResponseBadRequest("El código postal debe tener 5 dígitos (España)")
     # Clamp for safety
     if limit < 1:
         limit = 1
     if limit > 100:
         limit = 100
+
+    # Require api_key on user
+    if not (getattr(request.user, 'api_key', None)):
+        return HttpResponseBadRequest("Debes configurar tu API Key en el perfil")
 
     # Create a job id and placeholder output path
     job_id = uuid.uuid4().hex
@@ -48,24 +137,45 @@ def start_scrape(request):
 
     JOBS[job_id] = {"status": "pending", "error": None}
 
+    # Persist the search tied to the user
+    search = Search.objects.create(
+        user=request.user,
+        postal_code=postal_code,
+        category=category,
+        job_id=job_id,
+        status="pending",
+    )
+
+    # Choose API key: user-specific if provided, else global fallback
+    effective_api_key = getattr(request.user, 'api_key', None) or getattr(settings, 'SERPER_API_KEY', None)
+
     def worker():
         try:
             JOBS[job_id]["status"] = "running"
-            data_by_area = scrape_businesses_serper(location, limit)
+            data_by_area = scrape_businesses_by_cp_and_category(postal_code, category, limit, effective_api_key)
             # Ensure at least one sheet
             if not data_by_area:
                 data_by_area = {"Sin datos": []}
             export_to_excel(data_by_area, out_path)
             JOBS[job_id]["status"] = "done"
+            try:
+                Search.objects.filter(id=search.id).update(status="done", finished_at=timezone.now())
+            except Exception:
+                pass
         except Exception as e:
             JOBS[job_id]["status"] = "error"
             JOBS[job_id]["error"] = str(e)
+            try:
+                Search.objects.filter(id=search.id).update(status="error", error_message=str(e), finished_at=timezone.now())
+            except Exception:
+                pass
 
     Thread(target=worker, daemon=True).start()
 
     return JsonResponse({"job_id": job_id})
 
 
+@login_required
 def job_status(request, job_id: str):
     job = JOBS.get(job_id)
     if not job:
@@ -76,6 +186,7 @@ def job_status(request, job_id: str):
     return JsonResponse(payload)
 
 
+@login_required
 def download_excel(request, job_id: str):
     file_path = os.path.join(settings.MEDIA_ROOT, "exports", f"scrape_{job_id}.xlsx")
     if not os.path.exists(file_path):
@@ -83,12 +194,17 @@ def download_excel(request, job_id: str):
     return FileResponse(open(file_path, "rb"), as_attachment=True, filename=f"resultados_{job_id}.xlsx")
 
 
-def scrape_businesses_serper(location_query: str, limit: int = 20):
+def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit: int = 20, api_key: str | None = None):
+    """Ejemplo de scraping/consulta por CP + categoría usando Serper (Google Local).
+    Usa la api_key del usuario.
     """
-    Uses Serper (Google Local) to get businesses for a given Spanish location.
-    Returns a dict grouped under a single sheet name.
-    """
-    api_key = getattr(settings, "SERPER_API_KEY", None)
+    # Usa la api_key del usuario autenticado si existe; si no, fallback a settings
+    request_user = None
+    try:
+        from django.contrib.auth import get_user
+        request_user = get_user(getattr(scrape_businesses_serper, "_request", None))
+    except Exception:
+        request_user = None
     if not api_key:
         raise RuntimeError("Falta SERPER_API_KEY en settings")
 
@@ -102,25 +218,10 @@ def scrape_businesses_serper(location_query: str, limit: int = 20):
     aggregated: list[dict] = []
     seen_keys = set()
     per_batch = min(100, max(10, limit))
-    query_modifiers = [
-        "",
-        "centro",
-        "norte",
-        "sur",
-        "este",
-        "oeste",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "1",
-        "2",
-        "3",
-    ]
+    query_modifiers = ["", "centro", "norte", "sur"]
 
     for mod in query_modifiers:
-        q = f"negocios en {location_query} {mod}".strip()
+        q = f"{category} {postal_code} {mod}".strip()
         payload = {"q": q, "gl": "es", "hl": "es", "num": per_batch}
         r = requests.post(url, headers=headers, data=json.dumps(payload), timeout=45)
         if r.status_code == 401:

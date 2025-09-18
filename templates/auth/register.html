@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Registro – Grupo Oro{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white/5 ring-1 ring-white/10 rounded-2xl p-6">
+  <h1 class="text-2xl font-semibold mb-4">Crear cuenta</h1>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="space-y-3">
+      <div>
+        <label class="text-sm">Nombre</label>
+        <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+        {{ form.first_name.errors }}
+      </div>
+      <div>
+        <label class="text-sm">Apellidos</label>
+        <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+        {{ form.last_name.errors }}
+      </div>
+      <div>
+        <label class="text-sm">Email</label>
+        <input type="email" name="email" required value="{{ form.email.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+        {{ form.email.errors }}
+      </div>
+      <div>
+        <label class="text-sm">Teléfono</label>
+        <input type="text" name="phone_number" value="{{ form.phone_number.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+        {{ form.phone_number.errors }}
+      </div>
+      <div>
+        <label class="text-sm">API Key</label>
+        <input type="text" name="api_key" value="{{ form.api_key.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+        {{ form.api_key.errors }}
+      </div>
+      <div>
+        <label class="text-sm">Contraseña</label>
+        <input type="password" name="password1" required class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+        {{ form.password1.errors }}
+      </div>
+      <div>
+        <label class="text-sm">Confirmar contraseña</label>
+        <input type="password" name="password2" required class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+        {{ form.password2.errors }}
+      </div>
+      <button class="w-full rounded-xl bg-[var(--gold)] text-black font-semibold px-4 py-2">Crear cuenta</button>
+    </div>
+  </form>
+  <p class="text-sm text-neutral-400 mt-4">¿Ya tienes cuenta? <a class="underline" href="/login/">Inicia sesión</a></p>
+{% endblock %}
+
+

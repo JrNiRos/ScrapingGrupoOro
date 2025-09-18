@@ -16,12 +16,17 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
-from myapp.views import home, start_scrape, download_excel, job_status
+from myapp.views import home, start_scrape, download_excel, job_status, register, logout_view, profile
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('login/', auth_views.LoginView.as_view(template_name='auth/login.html', redirect_authenticated_user=True), name='login'),
+    path('logout/', logout_view, name='logout'),
+    path('register/', register, name='register'),
+    path('profile/', profile, name='profile'),
     path('', home, name='home'),
     path('scrape/', start_scrape, name='start_scrape'),
     path('status/<str:job_id>/', job_status, name='job_status'),

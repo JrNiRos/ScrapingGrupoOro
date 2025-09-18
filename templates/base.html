@@ -34,6 +34,14 @@
           <img src="{% static 'favicon/img/GrupoOroIcono_round.png' %}" alt="Grupo Oro" class="h-9 w-9 rounded-md shadow-sm" />
           <span class="text-3xl font-semibold tracking-wide text-[var(--text)]">Grupo <span class="text-[var(--gold)]">Oro</span></span>
         </a>
+        <div class="flex items-center gap-3">
+          {% if request.user.is_authenticated %}
+            <span class="text-sm text-neutral-300 hidden sm:inline">{{ request.user.email }}</span>
+            <a href="/logout/" class="rounded-lg border border-white/15 px-3 py-1.5 text-sm hover:bg-white/10">Salir</a>
+          {% else %}
+            <a href="/login/" class="rounded-lg bg-[var(--gold)] text-black font-semibold px-3 py-1.5 text-sm">Entrar</a>
+          {% endif %}
+        </div>
       </div>
     </div>
   </header>
