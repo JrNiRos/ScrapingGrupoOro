@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}Grupo Oro – Buscador{% endblock %}
+{% block content %}
+  <section class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div class="lg:col-span-7 space-y-4">
+      <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Buscador de Negocios por Ubicación</h1>
+      <p class="text-neutral-300 text-lg">Introduce una Localidad en España (ej. "Madrid", "Valencia"). Generaremos un Excel con nombre, teléfono y email (si existe), agrupado por barrios.</p>
+    </div>
+
+    <div class="lg:col-span-5">
+      <form id="scrape-form" onsubmit="return false;" class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
+        <label for="location" class="text-sm font-medium text-neutral-200">Ubicación</label>
+        <input id="location" type="text" placeholder="Ciudad o ubicación" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)]" />
+        
+        <div class="flex gap-3">
+          <button id="submit" class="inline-flex items-center justify-center rounded-xl bg-[var(--gold)] px-5 py-3 text-base font-semibold text-black shadow-sm hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold)]" type="submit">Buscar y generar Excel</button>
+          <button id="reset" class="inline-flex items-center justify-center rounded-xl border border-white/15 px-5 py-3 text-base font-semibold text-neutral-200 hover:bg-white/10 hidden" type="button">Nueva búsqueda</button>
+        </div>
+        <div id="status" class="text-sm text-neutral-300"></div>
+        <div id="download"></div>
+      </form>
+    </div>
+  </section>
+
+  <script>
+    const form = document.getElementById('scrape-form');
+    const locationInput = document.getElementById('location');
+    const submitBtn = document.getElementById('submit');
+    const resetBtn = document.getElementById('reset');
+    const statusEl = document.getElementById('status');
+    const downloadEl = document.getElementById('download');
+
+    function setLoading(isLoading) {
+      submitBtn.disabled = isLoading;
+      submitBtn.textContent = isLoading ? 'Procesando...' : 'Buscar y generar Excel';
+    }
+
+    resetBtn.addEventListener('click', () => {
+      locationInput.value = '';
+      statusEl.textContent = '';
+      downloadEl.innerHTML = '';
+      resetBtn.classList.add('hidden');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Buscar y generar Excel';
+    });
+
+    form.addEventListener('submit', async () => {
+      const location = locationInput.value.trim();
+      if (!location) {
+        statusEl.textContent = 'Introduce una ubicación';
+        return;
+      }
+      setLoading(true);
+      statusEl.textContent = 'Buscando datos y generando Excel...';
+      downloadEl.innerHTML = '';
+      try {
+        const resp = await fetch('/scrape/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ location }),
+        });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          throw new Error(txt || 'Error al procesar la solicitud');
+        }
+        const data = await resp.json();
+        await pollStatus(data.job_id);
+      } catch (e) {
+        statusEl.textContent = 'Error: ' + (e?.message || 'desconocido');
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    async function pollStatus(jobId) {
+      statusEl.textContent = 'Procesando… esto puede tardar unos segundos';
+      downloadEl.innerHTML = '';
+      resetBtn.classList.add('hidden');
+      const start = Date.now();
+      while (Date.now() - start < 180000) {
+        try {
+          const r = await fetch(`/status/${jobId}/`, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+          if (r.status === 404) { await sleep(1200); continue; }
+          const s = await r.json();
+          if (s.status === 'done') {
+            statusEl.textContent = '¡Listo! Descarga tu Excel en el enlace:';
+            downloadEl.innerHTML = `<a class="inline-flex items-center justify-center rounded-lg bg-black text-white px-4 py-2.5 text-sm font-semibold shadow-sm hover:bg-neutral-800" href="${s.download_url}">Descargar Excel</a>`;
+            resetBtn.classList.remove('hidden');
+            return;
+          } else if (s.status === 'error') {
+            statusEl.textContent = 'Error en el proceso: ' + (s.error || 'desconocido');
+            resetBtn.classList.remove('hidden');
+            return;
+          } else {
+            statusEl.textContent = 'Procesando…';
+          }
+          await sleep(1200);
+        } catch (e) {
+          statusEl.textContent = 'Error de red. Reintentando…';
+          await sleep(1500);
+        }
+      }
+      statusEl.textContent = 'Tiempo de espera agotado. Intenta de nuevo más tarde.';
+      resetBtn.classList.remove('hidden');
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+  </script>
+{% endblock %}
