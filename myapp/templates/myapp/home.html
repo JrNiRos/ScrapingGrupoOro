@@ -10,7 +10,7 @@
     <div class="lg:col-span-5">
       <form id="scrape-form" onsubmit="return false;" class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
         <label for="postal_code" class="text-sm font-medium text-neutral-200">Código Postal (España)</label>
-        <input id="postal_code" type="text" inputmode="numeric" pattern="\\d{5}" maxlength="5" placeholder="28001" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)]" />
+  <input id="postal_code" name="postal_code" type="text" inputmode="numeric" pattern="\d{5}" maxlength="5" placeholder="28001" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)]" />
 
         <label for="category" class="text-sm font-medium text-neutral-200">Categoría o nicho</label>
         <input id="category" type="text" placeholder="bares, peluquerías, restaurantes..." class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)]" />
@@ -49,11 +49,22 @@
       submitBtn.textContent = 'Buscar y generar Excel';
     });
 
+    // Normalize postal code: remove non-digits and take first 5 digits
+    postalCodeInput.addEventListener('input', () => {
+      postalCodeInput.value = postalCodeInput.value.replace(/\D/g, '').slice(0, 5);
+    });
+
     form.addEventListener('submit', async () => {
-      const postal_code = postalCodeInput.value.trim();
+      const postal_code = postalCodeInput.value.replace(/\D/g, '').slice(0, 5);
       const category = categoryInput.value.trim();
       if (!/^\d{5}$/.test(postal_code)) {
         statusEl.textContent = 'Introduce un código postal válido de 5 dígitos';
+        return;
+      }
+      // Comprobar que el prefijo provincial corresponde a España (01-52)
+      const province = parseInt(postal_code.slice(0, 2), 10);
+      if (Number.isNaN(province) || province < 1 || province > 52) {
+        statusEl.textContent = 'Introduce un código postal español válido (prefijo 01–52)';
         return;
       }
       if (!category) {

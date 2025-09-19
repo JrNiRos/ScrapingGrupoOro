@@ -108,7 +108,9 @@ def start_scrape(request):
     # Expect JSON body: {"location": "Madrid"}
     try:
         body = json.loads(request.body.decode("utf-8"))
-        postal_code = (body.get("postal_code") or "").strip()
+        # Accept postal codes containing spaces or hyphens; keep only digits
+        raw_postal = (body.get("postal_code") or "")
+        postal_code = ''.join(ch for ch in raw_postal if ch.isdigit())[:5]
         category = (body.get("category") or "").strip()
         limit = 100
     except Exception:
@@ -119,6 +121,13 @@ def start_scrape(request):
     import re
     if not re.fullmatch(r"\d{5}", postal_code):
         return HttpResponseBadRequest("El código postal debe tener 5 dígitos (España)")
+    # Comprueba que los dos primeros dígitos (prefijo provincial) corresponden a España (01-52)
+    try:
+        province = int(postal_code[:2])
+    except Exception:
+        return HttpResponseBadRequest("Código postal inválido")
+    if province < 1 or province > 52:
+        return HttpResponseBadRequest("El código postal debe pertenecer a España (prefijo 01–52)")
     # Clamp for safety
     if limit < 1:
         limit = 1
@@ -199,12 +208,8 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
     Usa la api_key del usuario.
     """
     # Usa la api_key del usuario autenticado si existe; si no, fallback a settings
+    # No necesitamos el usuario aquí; dejar explícitamente None
     request_user = None
-    try:
-        from django.contrib.auth import get_user
-        request_user = get_user(getattr(scrape_businesses_serper, "_request", None))
-    except Exception:
-        request_user = None
     if not api_key:
         raise RuntimeError("Falta SERPER_API_KEY en settings")
 
