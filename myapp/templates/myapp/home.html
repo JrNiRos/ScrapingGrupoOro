@@ -3,17 +3,19 @@
 {% block content %}
   <section class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
     <div class="lg:col-span-7 space-y-4">
-      <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Búsqueda por Código Postal y Categoría</h1>
-      <p class="text-neutral-300 text-lg">Introduce un <strong>CP</strong> (5 dígitos en España) y una <strong>categoría</strong> (p. ej. "bares", "peluquerías", "restaurantes"). Generaremos un Excel con resultados.</p>
+  <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Búsqueda por Código Postal y Categoría</h1>
+  <p class="text-neutral-300 text-lg">Introduce un <strong>CP</strong> (5 dígitos en España) y escribe el <strong>tipo de negocio</strong> (ej. peluquería, panadería). Generaremos un Excel con resultados.</p>
     </div>
 
     <div class="lg:col-span-5">
       <form id="scrape-form" onsubmit="return false;" class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
         <label for="postal_code" class="text-sm font-medium text-neutral-200">Código Postal (España)</label>
-  <input id="postal_code" name="postal_code" type="text" inputmode="numeric" pattern="\d{5}" maxlength="5" placeholder="28001" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)]" />
+        <input id="postal_code" name="postal_code" type="text" inputmode="numeric" pattern="\d{5}" maxlength="5" placeholder="28001" aria-label="Código postal" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)] p-3" />
 
-        <label for="category" class="text-sm font-medium text-neutral-200">Categoría o nicho</label>
-        <input id="category" type="text" placeholder="bares, peluquerías, restaurantes..." class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)]" />
+        <label for="category" class="text-sm font-medium text-neutral-200">Categoría / Tipo de negocio</label>
+        <div>
+          <input id="category" name="category" type="text" placeholder="Ej. panadería, peluquería, taller mecánico" aria-label="Categoría" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)] p-3" />
+        </div>
         
         <div class="flex gap-3">
           <button id="submit" class="inline-flex items-center justify-center rounded-xl bg-[var(--gold)] px-5 py-3 text-base font-semibold text-black shadow-sm hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold)]" type="submit">Buscar y generar Excel</button>
@@ -28,7 +30,8 @@
   <script>
     const form = document.getElementById('scrape-form');
     const postalCodeInput = document.getElementById('postal_code');
-    const categoryInput = document.getElementById('category');
+  const categoryInput = document.getElementById('category');
+  const categoryOther = document.getElementById('category_other');
     const submitBtn = document.getElementById('submit');
     const resetBtn = document.getElementById('reset');
     const statusEl = document.getElementById('status');
@@ -56,7 +59,10 @@
 
     form.addEventListener('submit', async () => {
       const postal_code = postalCodeInput.value.replace(/\D/g, '').slice(0, 5);
-      const category = categoryInput.value.trim();
+      let category = categoryInput.value.trim();
+      if (category === 'otro' || category === 'Otro') {
+        category = categoryOther.value.trim();
+      }
       if (!/^\d{5}$/.test(postal_code)) {
         statusEl.textContent = 'Introduce un código postal válido de 5 dígitos';
         return;
@@ -68,7 +74,7 @@
         return;
       }
       if (!category) {
-        statusEl.textContent = 'Introduce una categoría';
+        statusEl.textContent = 'Introduce una categoría / tipo de negocio (p. ej. peluquería, panadería)';
         return;
       }
       setLoading(true);
@@ -86,6 +92,12 @@
         });
         if (!resp.ok) {
           const txt = await resp.text();
+          // Mensaje especial para API key faltante
+          if (txt && txt.toLowerCase().includes('api')) {
+            statusEl.textContent = 'Debes configurar tu API Key en el perfil antes de realizar búsquedas';
+            setLoading(false);
+            return;
+          }
           throw new Error(txt || 'Error al procesar la solicitud');
         }
         const data = await resp.json();
@@ -114,6 +126,10 @@
             return;
           } else if (s.status === 'error') {
             statusEl.textContent = 'Error en el proceso: ' + (s.error || 'desconocido');
+            resetBtn.classList.remove('hidden');
+            return;
+          } else if (s.status === 'unknown') {
+            statusEl.textContent = 'Estado desconocido. Intenta de nuevo más tarde.';
             resetBtn.classList.remove('hidden');
             return;
           } else {
@@ -145,5 +161,7 @@
       }
       return cookieValue;
     }
+    // No hay select predefinido: category es un campo de texto libre
   </script>
+  <!-- No custom select JS: categoría ahora es un input de texto libre -->
 {% endblock %}

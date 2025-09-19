@@ -16,30 +16,42 @@
   <link rel="manifest" href="{% static 'favicon/site.webmanifest' %}">
   <meta name="theme-color" content="#d4af37">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            oro: '#d4af37'
+          }
+        },
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui']
+        }
+      }
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root { --bg:#0f0f0f; --text:#e5e5e5; --gold:#d4af37; --border:#3a3a3a; }
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-  </style>
+  <link rel="stylesheet" href="{% static 'css/brand.css' %}">
   {% block head %}{% endblock %}
   {% csrf_token %}
 </head>
 <body class="min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col">
-  <header class="border-b border-[var(--border)] bg-[color:rgba(15,15,15,0.7)] backdrop-blur supports-[backdrop-filter]:bg-[color:rgba(15,15,15,0.5)]">
+  <header class="site-header">
     <div class="max-w-5xl mx-auto px-6">
       <div class="h-20 flex items-center justify-between">
-        <a href="/" class="inline-flex items-center gap-3 group">
+        <a href="/" class="brand">
           <img src="{% static 'favicon/img/GrupoOroIcono_round.png' %}" alt="Grupo Oro" class="h-9 w-9 rounded-md shadow-sm" />
-          <span class="text-3xl font-semibold tracking-wide text-[var(--text)]">Grupo <span class="text-[var(--gold)]">Oro</span></span>
+          <span class="ml-2">Grupo <span class="oro">Oro</span></span>
         </a>
         <div class="flex items-center gap-3">
           {% if request.user.is_authenticated %}
             <span class="text-sm text-neutral-300 hidden sm:inline">{{ request.user.email }}</span>
             <a href="/logout/" class="rounded-lg border border-white/15 px-3 py-1.5 text-sm hover:bg-white/10">Salir</a>
+            <a href="/profile/" class="ml-2 rounded-lg bg-white/5 px-3 py-1 text-sm hover:bg-white/10">Perfil</a>
           {% else %}
-            <a href="/login/" class="rounded-lg bg-[var(--gold)] text-black font-semibold px-3 py-1.5 text-sm">Entrar</a>
+            <a href="/login/" class="btn-primary">Entrar</a>
           {% endif %}
         </div>
       </div>
@@ -48,11 +60,29 @@
 
   <main class="flex-1">
     <div class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
+      {# Mensajes de Django (éxito/error/info) #}
+      {% if messages %}
+        <div class="space-y-3 mb-6">
+          {% for message in messages %}
+            <div class="rounded-lg p-3 flex items-start gap-3 text-sm shadow-sm {% if message.tags %}bg-white/5 ring-1 ring-white/10 {% endif %}">
+              <div class="flex-1">
+                <div class="font-medium text-white">{{ message.tags|capfirst }}</div>
+                <div class="text-neutral-300">{{ message }}</div>
+              </div>
+              <button type="button" class="text-neutral-400 hover:text-white close-msg">✕</button>
+            </div>
+          {% endfor %}
+        </div>
+        <script>
+          document.querySelectorAll('.close-msg').forEach(btn => btn.addEventListener('click', e => { e.target.closest('div').remove(); }));
+        </script>
+      {% endif %}
+
       {% block content %}{% endblock %}
     </div>
   </main>
 
-  <footer class="border-t border-[var(--border)] bg-[var(--bg)]">
+  <footer class="site-footer">
     <div class="max-w-5xl mx-auto px-6 py-8 text-sm text-neutral-400">
       © 2025 Grupo Oro – Todos los derechos reservados
     </div>

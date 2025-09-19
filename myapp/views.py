@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 import uuid
 import json
 import os
@@ -36,7 +37,10 @@ class RegisterForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "phone_number", "api_key"]
+        fields = ["email"]
+        widgets = {
+            'email': forms.EmailInput(attrs={'class': 'w-full rounded-xl bg-white/5 border border-white/10 p-3 text-white', 'placeholder': 'Email'}),
+        }
 
     def clean_email(self):
         email = self.cleaned_data.get("email").lower()
@@ -67,10 +71,12 @@ def register(request):
             user = form.save()
             # Autologin opcional tras registro
             login(request, user)
+            messages.success(request, 'Registro completado. Bienvenido/a.')
             if request.headers.get("x-requested-with") == "XMLHttpRequest":
-                return JsonResponse({"ok": True, "redirect": "/"})
+                return JsonResponse({"ok": True, "redirect": "/profile/"})
             from django.shortcuts import redirect
-            return redirect("home")
+            # Tras registro, dirigir al usuario al perfil para que configure su API Key
+            return redirect("profile")
     else:
         form = RegisterForm()
     return render(request, "auth/register.html", {"form": form})
@@ -87,6 +93,12 @@ class ProfileForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ["first_name", "last_name", "phone_number", "api_key"]
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'w-full rounded-xl bg-white/5 border border-white/10 p-3 text-white'}),
+            'last_name': forms.TextInput(attrs={'class': 'w-full rounded-xl bg-white/5 border border-white/10 p-3 text-white'}),
+            'phone_number': forms.TextInput(attrs={'class': 'w-full rounded-xl bg-white/5 border border-white/10 p-3 text-white'}),
+            'api_key': forms.TextInput(attrs={'class': 'w-full rounded-xl bg-white/5 border border-white/10 p-3 text-white'}),
+        }
 
 
 @login_required
@@ -95,6 +107,7 @@ def profile(request):
         form = ProfileForm(request.POST, instance=request.user)
         if form.is_valid():
             form.save()
+            messages.success(request, 'Perfil actualizado correctamente')
             from django.shortcuts import redirect
             return redirect('home')
     else:
