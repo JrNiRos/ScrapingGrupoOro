@@ -8,29 +8,9 @@
     {{ form.non_field_errors }}
     <div class="space-y-3">
       <div>
-        <label class="text-sm">Nombre</label>
-        <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
-        {{ form.first_name.errors }}
-      </div>
-      <div>
-        <label class="text-sm">Apellidos</label>
-        <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
-        {{ form.last_name.errors }}
-      </div>
-      <div>
         <label class="text-sm">Email</label>
         <input type="email" name="email" required value="{{ form.email.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
         {{ form.email.errors }}
-      </div>
-      <div>
-        <label class="text-sm">Teléfono</label>
-        <input type="text" name="phone_number" value="{{ form.phone_number.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
-        {{ form.phone_number.errors }}
-      </div>
-      <div>
-        <label class="text-sm">API Key</label>
-        <input type="text" name="api_key" value="{{ form.api_key.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
-        {{ form.api_key.errors }}
       </div>
       <div>
         <label class="text-sm">Contraseña</label>

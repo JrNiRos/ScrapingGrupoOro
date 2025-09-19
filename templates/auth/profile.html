@@ -3,34 +3,92 @@
 {% block content %}
 <div class="max-w-lg mx-auto bg-white/5 ring-1 ring-white/10 rounded-2xl p-6">
   <h1 class="text-2xl font-semibold mb-4">Tu perfil</h1>
-  <p class="text-sm text-neutral-300 mb-4">Introduce tu API Key para poder realizar búsquedas.</p>
-  <form method="post">
+  <p class="text-sm text-neutral-300 mb-4">Introduce tu API Key y tu teléfono. Estos datos se usarán para las búsquedas y el contacto.</p>
+  <div class="mb-4 p-2 bg-white/3 rounded-lg flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-medium">API Key</h2>
+      <p class="text-sm text-neutral-300">Pega tu API Key aquí para habilitar las búsquedas.</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="#get-api-key" class="inline-block rounded-md bg-[var(--gold)] text-black font-semibold px-3 py-2">Pegar API Key</a>
+      <button id="open-api-info" class="inline-block rounded-md bg-white/5 border border-white/10 text-white px-3 py-2">Más info</button>
+    </div>
+  </div>
+  <form method="post" novalidate>
     {% csrf_token %}
-    {{ form.non_field_errors }}
+    {% if form.non_field_errors %}
+      <div class="mb-3 text-sm text-red-300">{{ form.non_field_errors }}</div>
+    {% endif %}
     <div class="space-y-3">
-      <div>
-        <label class="text-sm">Nombre</label>
-        {{ form.first_name }}
-        {{ form.first_name.errors }}
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium mb-1">Nombre</label>
+    {{ form.first_name }}
+          <div class="text-xs text-red-300">{{ form.first_name.errors }}</div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Apellidos</label>
+    {{ form.last_name }}
+          <div class="text-xs text-red-300">{{ form.last_name.errors }}</div>
+        </div>
+        <div class="col-span-2 sm:col-span-1">
+          <label class="block text-sm font-medium mb-1">Teléfono</label>
+    {{ form.phone_number }}
+          <div class="text-xs text-red-300">{{ form.phone_number.errors }}</div>
+        </div>
+      </div>
+      <div id="get-api-key">
+        <label class="block text-sm font-medium mb-1">API Key</label>
+  {{ form.api_key }}
+        <div class="text-xs text-red-300">{{ form.api_key.errors }}</div>
+        {% if not form.api_key.value %}
+          <p class="text-sm text-neutral-400 mt-2">Aún no tienes una API Key. Pulsa "Más info" para obtenerla o pega la clave aquí.</p>
+        {% endif %}
       </div>
       <div>
-        <label class="text-sm">Apellidos</label>
-        {{ form.last_name }}
-        {{ form.last_name.errors }}
+        <button class="w-full rounded-xl bg-[var(--gold)] text-black font-semibold px-4 py-2">Guardar</button>
       </div>
-      <div>
-        <label class="text-sm">Teléfono</label>
-        {{ form.phone_number }}
-        {{ form.phone_number.errors }}
-      </div>
-      <div>
-        <label class="text-sm">API Key</label>
-        {{ form.api_key }}
-        {{ form.api_key.errors }}
-      </div>
-      <button class="w-full rounded-xl bg-[var(--gold)] text-black font-semibold px-4 py-2">Guardar</button>
     </div>
   </form>
+  <!-- Modal de instrucciones (oculto por defecto) -->
+  <div id="api-info-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-[9999]">
+    <div class="bg-neutral-900 text-white rounded-lg p-6 max-w-xl mx-4 max-h-[80vh] overflow-auto shadow-lg">
+      <div class="flex justify-between items-start">
+        <h3 class="text-lg font-semibold">Cómo obtener tu API Key</h3>
+        <button id="close-api-info" class="text-white">Cerrar</button>
+      </div>
+      <div class="mt-4 text-sm text-neutral-300">
+        <p class="mb-2">Puedes obtener una API Key en uno de los proveedores siguientes. Sigue estos pasos:</p>
+        <ol class="list-decimal list-inside mb-2">
+          <li>Regístrate o inicia sesión en el proveedor (Serper o Google Cloud).</li>
+          <li>Crea un proyecto (si es necesario) y habilita la API correspondiente (por ejemplo, Places API en Google).</li>
+          <li>Ve a la sección de credenciales y crea una nueva API Key.</li>
+          <li>Copia la clave y pégala en el campo "API Key" en esta página, luego guarda.</li>
+        </ol>
+        <div class="flex gap-2 mt-3">
+          <a href="https://serper.dev/" target="_blank" rel="noopener noreferrer" class="inline-block rounded-md bg-[var(--gold)] text-black font-semibold px-4 py-2">Ir a Serper</a>
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" class="inline-block rounded-md bg-white/5 border border-white/10 text-white px-4 py-2">Ir a Google Cloud</a>
+        </div>
+        <p class="text-xs text-neutral-400 mt-3">Nota: Google Cloud puede requerir habilitar facturación. Serper ofrece una manera rápida de obtener resultados locales.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var open = document.getElementById('open-api-info');
+      var modal = document.getElementById('api-info-modal');
+      var close = document.getElementById('close-api-info');
+      if(open && modal && close){
+        open.addEventListener('click', function(e){ e.preventDefault(); modal.classList.remove('hidden'); modal.classList.add('flex'); document.body.style.overflow = 'hidden'; });
+        function closeModal(e){ e && e.preventDefault && e.preventDefault(); modal.classList.remove('flex'); modal.classList.add('hidden'); document.body.style.overflow = ''; }
+        close.addEventListener('click', closeModal);
+        modal.addEventListener('click', function(e){ if(e.target === modal){ closeModal(); } });
+        // Close with Escape
+        document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !modal.classList.contains('hidden')){ closeModal(); } });
+      }
+    })();
+  </script>
 {% endblock %}
 
 

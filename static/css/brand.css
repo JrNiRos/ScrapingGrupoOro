@@ -1,0 +1,121 @@
+/* Paleta y estilos base inspirados en https://grupooro.es/ */
+:root{
+  --gold: #d4af37;
+  --gold-dark: #b58f28;
+  --gold-light: #efe1a8;
+  --bg: #0f0f0f;
+  --bg-2: #0b0b0b;
+  --surface: #121212;
+  --text: #e5e5e5;
+  --muted: #a8a8a8;
+  --border: #3a3a3a;
+}
+
+/* Reset ligero */
+html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+
+/* Header */
+.site-header{
+  background: linear-gradient(180deg, rgba(15,15,15,0.7), rgba(11,11,11,0.6));
+  border-bottom:1px solid var(--border);
+  backdrop-filter: blur(6px);
+}
+.site-header .brand{
+  display:inline-flex;align-items:center;gap:.75rem;font-weight:600;font-size:1.25rem;color:var(--text)
+}
+.site-header .brand .oro{color:var(--gold);}
+
+/* Botones */
+.btn-primary{
+  background:var(--gold);
+  color:var(--black);
+  padding:.6rem 1rem;border-radius:.75rem;font-weight:600;display:inline-flex;align-items:center;justify-content:center;border:none;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.25)
+}
+.btn-primary:hover{background:var(--gold-dark)}
+
+/* Forms */
+.input-field{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);padding:.6rem .8rem;border-radius:.75rem;color:var(--text)}
+
+/* Hero */
+.hero{
+  padding:4rem 0;text-align:center;color:var(--text)
+}
+.hero h1{font-size:2.25rem;letter-spacing:.06em}
+.hero p{color:var(--muted);font-size:1.05rem}
+
+/* Footer */
+.site-footer{border-top:1px solid var(--border);padding:2rem 0;color:var(--muted)}
+
+/* Utilities */
+.text-gold{color:var(--gold)}
+.bg-surface{background:var(--surface)}
+
+/* Estilos específicos para selects en la app (mejorar visibilidad en fondo oscuro) */
+#category{
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: rgba(255,255,255,0.03); /* ligero overlay como en inputs */
+  color: var(--text); /* texto blanco */
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: .75rem;
+  padding: .75rem 3rem .75rem .75rem; /* espacio para la flecha a la derecha */
+  outline: none;
+  transition: box-shadow .12s, border-color .12s, background .12s;
+}
+
+/* Focus accesible con anillo dorado */
+#category:focus{
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(212,175,55,0.12); /* anillo suave en dorado */
+}
+
+/* Intento de forzar color de opciones; algunos navegadores pueden ignorarlo */
+#category option{
+  /* fondo neutro similar al borde de la UI */
+  background: var(--border);
+  color: var(--text);
+}
+
+#category option:hover{
+  /* Forzar color propio y evitar sombreado azul del sistema */
+  background: var(--gold-dark) !important;
+  color: #0b0b0b !important; /* texto oscuro para buen contraste */
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+#category option:checked{
+  /* Forzar estado seleccionado sin sombreado azul */
+  background: var(--gold-dark) !important;
+  color: #0b0b0b !important;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+/* Intento adicional: neutralizar sombreado azul en focus/active (puede no funcionar en todos los navegadores) */
+#category option:focus,
+#category option:active{
+  background: var(--gold-dark) !important;
+  color: #0b0b0b !important;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+/* Quitar flecha por defecto en IE/Edge */
+select::-ms-expand { display: none; }
+
+/* Estilos para custom select (reemplazo del select nativo) */
+.custom-select{ position:relative; }
+.custom-select .select-trigger{ background: transparent; border:none; width:100%; display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+.custom-select .select-trigger:focus{ outline:none; }
+.custom-select .select-options{ list-style:none; margin:0; padding:0; }
+.custom-select .select-options .option{ cursor:pointer; }
+.custom-select .select-options .option:hover{ background: var(--gold-dark); color:#0b0b0b; }
+.custom-select .select-options .option:focus{ outline:none; background: var(--gold-dark); color:#0b0b0b; }
+.custom-select .select-options{ background: var(--surface); border:1px solid rgba(255,255,255,0.04); }
+
+/* Responsive tweaks */
+@media (min-width:768px){
+  .hero h1{font-size:3rem}
+}
