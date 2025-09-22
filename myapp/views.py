@@ -15,6 +15,7 @@ import re
 from openpyxl import Workbook
 from threading import Thread
 from django import forms
+from .forms import SearchForm
 from django.contrib.auth import login, authenticate
 from django.contrib.auth import logout
 from .models import User, Search
@@ -73,7 +74,9 @@ def home(request):
     if not (getattr(request.user, 'api_key', None)):
         from django.shortcuts import redirect
         return redirect('profile')
-    return render(request, "myapp/home.html")
+    # Pasar el formulario con la lista de países
+    form = SearchForm()
+    return render(request, "myapp/home.html", {"form": form})
 
 
 class RegisterForm(forms.ModelForm):
@@ -168,8 +171,9 @@ def start_scrape(request):
         body = json.loads(request.body.decode("utf-8"))
         # Accept postal codes containing spaces or hyphens; keep only digits
         raw_postal = (body.get("postal_code") or "")
-        postal_code = ''.join(ch for ch in raw_postal if ch.isdigit())[:5]
+        postal_code = ''.join(ch for ch in raw_postal if ch.isalnum())[:10]
         category = (body.get("category") or "").strip()
+        country = (body.get("country") or "ES").strip().upper()
         limit = 100
     except Exception:
         return HttpResponseBadRequest("JSON inválido")
@@ -177,15 +181,21 @@ def start_scrape(request):
     if not postal_code or not category:
         return HttpResponseBadRequest("El código postal y la categoría son obligatorios")
     import re
-    if not re.fullmatch(r"\d{5}", postal_code):
-        return HttpResponseBadRequest("El código postal debe tener 5 dígitos (España)")
-    # Comprueba que los dos primeros dígitos (prefijo provincial) corresponden a España (01-52)
-    try:
-        province = int(postal_code[:2])
-    except Exception:
-        return HttpResponseBadRequest("Código postal inválido")
-    if province < 1 or province > 52:
-        return HttpResponseBadRequest("El código postal debe pertenecer a España (prefijo 01–52)")
+    # Validación dependiente del país seleccionado
+    if country == 'ES':
+        # Forzar formato español: 5 dígitos y prefijo provincial 01-52
+        if not re.fullmatch(r"\d{5}", postal_code):
+            return HttpResponseBadRequest("El código postal debe tener 5 dígitos (España)")
+        try:
+            province = int(postal_code[:2])
+        except Exception:
+            return HttpResponseBadRequest("Código postal inválido")
+        if province < 1 or province > 52:
+            return HttpResponseBadRequest("El código postal debe pertenecer a España (prefijo 01–52)")
+    else:
+        # Para otros países aceptamos códigos alfanuméricos razonables (1-10 chars)
+        if not postal_code or len(postal_code) > 10:
+            return HttpResponseBadRequest("Introduce un código postal válido para el país seleccionado")
     # Clamp for safety
     if limit < 1:
         limit = 1
@@ -209,6 +219,7 @@ def start_scrape(request):
         user=request.user,
         postal_code=postal_code,
         category=category,
+        country=country,
         job_id=job_id,
         status="pending",
     )
@@ -219,7 +230,7 @@ def start_scrape(request):
     def worker():
         try:
             JOBS[job_id]["status"] = "running"
-            data_by_area = scrape_businesses_by_cp_and_category(postal_code, category, limit, effective_api_key)
+            data_by_area = scrape_businesses_by_cp_and_category(postal_code, category, limit, effective_api_key, country=country)
             # Ensure at least one sheet
             if not data_by_area:
                 data_by_area = {"Sin datos": []}
@@ -261,7 +272,7 @@ def download_excel(request, job_id: str):
     return FileResponse(open(file_path, "rb"), as_attachment=True, filename=f"resultados_{job_id}.xlsx")
 
 
-def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit: int = 20, api_key: str | None = None):
+def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit: int = 20, api_key: str | None = None, country: str = 'ES'):
     """Ejemplo de scraping/consulta por CP + categoría usando Serper (Google Local).
     Usa la api_key del usuario.
     """
@@ -287,7 +298,10 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
 
     for mod in query_modifiers:
         q = f"{category} {postal_code} {mod}".strip()
-        payload = {"q": q, "gl": "es", "hl": "es", "num": per_batch}
+        # Usar el country ISO alpha-2 para parámetros regionales (gl) en Serper/Google local
+        gl = (country or 'ES').lower()
+        hl = 'es' if gl == 'es' else 'en'
+        payload = {"q": q, "gl": gl, "hl": hl, "num": per_batch}
         r = requests.post(url, headers=headers, data=json.dumps(payload), timeout=45)
         if r.status_code == 401:
             raise RuntimeError("API key de Serper inválida o sin permisos")
@@ -306,19 +320,24 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
             # Priorizar coincidencia por código postal si está presente en la dirección.
             addr_l = (address or "").lower()
             postal_ok = False
+            # Prefer match by postal code in the address
             if postal_code and postal_code in addr_l:
                 postal_ok = True
-            # También aceptar si la dirección contiene indicación explícita de España
-            if not postal_ok and ('espa' in addr_l or ' spain' in addr_l):
-                postal_ok = True
-            # Si no podemos confirmar que es España, descartamos el resultado para evitar ficheros con datos de otros países
+            # Also accept if the address explicitly contains the selected country name or ISO code
             if not postal_ok:
-                # También comprobamos campos auxiliares que puedan indicar país (ej. country o location)
-                country = (item.get('country') or '')
-                if isinstance(country, str) and country.lower().startswith('es'):
-                    postal_ok = True
+                # Some providers include a 'country' field
+                country_field = (item.get('country') or '')
+                if isinstance(country_field, str) and country_field:
+                    if country_field.lower().startswith(country.lower()):
+                        postal_ok = True
+                # Check for country names snippets (basic, not exhaustive)
+                if not postal_ok:
+                    if gl == 'es' and ('espa' in addr_l or ' spain' in addr_l):
+                        postal_ok = True
+                    elif gl != 'es' and (gl in addr_l or country.lower() in addr_l):
+                        postal_ok = True
             if not postal_ok:
-                # skip result not confirmed in Spain
+                # skip result not confirmed in the selected country
                 continue
             dedup_key = f"{(name or '').strip().lower()}|{(address or '').strip().lower()}"
             if dedup_key in seen_keys:

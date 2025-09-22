@@ -8,13 +8,22 @@
     </div>
 
     <div class="lg:col-span-5">
-      <form id="scrape-form" onsubmit="return false;" class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
+  <form id="scrape-form" onsubmit="return false;" class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
         <label for="postal_code" class="text-sm font-medium text-neutral-200">Código Postal (España)</label>
         <input id="postal_code" name="postal_code" type="text" inputmode="numeric" pattern="\d{5}" maxlength="5" placeholder="28001" aria-label="Código postal" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)] p-3" />
 
         <label for="category" class="text-sm font-medium text-neutral-200">Categoría / Tipo de negocio</label>
         <div>
           <input id="category" name="category" type="text" placeholder="Ej. panadería, peluquería, taller mecánico" aria-label="Categoría" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)] p-3" />
+        </div>
+        <label for="country" class="text-sm font-medium text-neutral-200">País</label>
+        <div>
+          {% comment %} Mostrar un select con los países provistos por el SearchForm {% endcomment %}
+          <select id="country" name="country" class="w-full rounded-xl bg-white/5 border border-white/10 text-white p-3">
+            {% for code, label in form.fields.country.choices %}
+              <option value="{{ code }}" {% if form.fields.country.initial == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
         </div>
         
         <div class="flex gap-3">
@@ -58,20 +67,28 @@
     });
 
     form.addEventListener('submit', async () => {
-      const postal_code = postalCodeInput.value.replace(/\D/g, '').slice(0, 5);
+  const postal_code = postalCodeInput.value.replace(/\W/g, '').slice(0, 10);
       let category = categoryInput.value.trim();
+  const country = (document.getElementById('country')?.value || 'ES').toUpperCase();
       if (category === 'otro' || category === 'Otro') {
         category = categoryOther.value.trim();
       }
-      if (!/^\d{5}$/.test(postal_code)) {
-        statusEl.textContent = 'Introduce un código postal válido de 5 dígitos';
-        return;
-      }
-      // Comprobar que el prefijo provincial corresponde a España (01-52)
-      const province = parseInt(postal_code.slice(0, 2), 10);
-      if (Number.isNaN(province) || province < 1 || province > 52) {
-        statusEl.textContent = 'Introduce un código postal español válido (prefijo 01–52)';
-        return;
+      // Validación básica: si el país seleccionado es ES, requerir 5 dígitos
+      if (country === 'ES') {
+        if (!/^\d{5}$/.test(postal_code)) {
+          statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (España)';
+          return;
+        }
+        const province = parseInt(postal_code.slice(0, 2), 10);
+        if (Number.isNaN(province) || province < 1 || province > 52) {
+          statusEl.textContent = 'Introduce un código postal español válido (prefijo 01–52)';
+          return;
+        }
+      } else {
+        if (!postal_code) {
+          statusEl.textContent = 'Introduce un código postal válido para el país seleccionado';
+          return;
+        }
       }
       if (!category) {
         statusEl.textContent = 'Introduce una categoría / tipo de negocio (p. ej. peluquería, panadería)';
@@ -88,7 +105,7 @@
             'X-CSRFToken': getCookie('csrftoken'),
           },
           credentials: 'same-origin',
-          body: JSON.stringify({ postal_code, category }),
+          body: JSON.stringify({ postal_code, category, country }),
         });
         if (!resp.ok) {
           const txt = await resp.text();

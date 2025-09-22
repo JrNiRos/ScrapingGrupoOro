@@ -76,6 +76,8 @@ class Search(models.Model):
     user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='searches')
     postal_code = models.CharField(max_length=5)
     category = models.CharField(max_length=120)
+    # ISO 3166-1 alpha-2 country code (ej: 'ES', 'US')
+    country = models.CharField(max_length=2, default='ES')
     job_id = models.CharField(max_length=64, blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
