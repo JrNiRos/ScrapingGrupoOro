@@ -11,12 +11,14 @@ import json
 import os
 import time
 import requests
+import re
 from openpyxl import Workbook
 from threading import Thread
 from django import forms
 from django.contrib.auth import login, authenticate
 from django.contrib.auth import logout
 from .models import User, Search
+from .utils import postal as postal_utils
 
 # In-memory job registry (simple demo)
 JOBS = {}
@@ -441,3 +443,83 @@ def export_to_excel(groups: dict, file_path: str):
 
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     wb.save(file_path)
+
+
+@require_POST
+@login_required
+def filter_excel_by_cp_view(request):
+    """Ejemplo POST view que filtra un Excel por código postal español.
+
+    Parámetros esperados (JSON o multipart/form-data):
+    - file: (opcional) archivo Excel subido. Si no se proporciona, se puede enviar
+      `filename` con una ruta relativa en MEDIA_ROOT/exports.
+    - postal_code: código postal objetivo (5 dígitos). Si se omite, devuelve
+      todas las filas que contengan cualquier CP español válido.
+
+    Responde JSON con conteo y ruta del archivo exportado si hay resultados.
+    """
+    # Soportar multipart/form-data (file upload) o JSON
+    postal_raw = request.POST.get('postal_code') or (json.loads(request.body.decode('utf-8')).get('postal_code') if request.content_type == 'application/json' and request.body else None)
+    postal_code = None
+    if postal_raw:
+        postal_code = ''.join(ch for ch in str(postal_raw) if ch.isdigit())[:5]
+        if postal_code and not re.fullmatch(r"\d{5}", postal_code):
+            return HttpResponseBadRequest("postal_code debe tener 5 dígitos")
+
+    # Obtener archivo: preferir upload
+    uploaded = request.FILES.get('file')
+    filename = request.POST.get('filename')
+
+    try:
+        import pandas as pd
+    except Exception:
+        return HttpResponseBadRequest('pandas es requerido en el servidor para procesar Excel')
+
+    if uploaded:
+        # Leer directamente desde el archivo subido
+        try:
+            df = pd.read_excel(uploaded)
+        except Exception as e:
+            return HttpResponseBadRequest(f'Error leyendo Excel subido: {e}')
+    elif filename:
+        # Construir ruta dentro de MEDIA_ROOT/exports por seguridad
+        path = os.path.join(settings.MEDIA_ROOT, 'exports', os.path.basename(filename))
+        if not os.path.exists(path):
+            return HttpResponseBadRequest('Archivo no encontrado en exports')
+        try:
+            df = pd.read_excel(path)
+        except Exception as e:
+            return HttpResponseBadRequest(f'Error leyendo Excel: {e}')
+    else:
+        return HttpResponseBadRequest('Proporciona un archivo subido o filename')
+
+    # Normalizar nombres de columna esperados
+    # El util espera columna 'direccion' por defecto
+    # Hacemos una copia y renombramos si detectamos 'Dirección' u otras variantes
+    df_columns_lower = {c.lower(): c for c in df.columns}
+    if 'direccion' not in df_columns_lower:
+        # intentar variantes en español/inglés
+        for candidate in ('dirección', 'address', 'direcciones'):
+            if candidate in df_columns_lower:
+                df = df.rename(columns={df_columns_lower[candidate]: 'direccion'})
+                break
+
+    try:
+        filtered = postal_utils.filter_dataframe_by_spanish_cp(df, postal_code=postal_code, addr_col='direccion')
+    except Exception as e:
+        return HttpResponseBadRequest(f'Error filtrando datos: {e}')
+
+    if filtered.empty:
+        return JsonResponse({'results': 0, 'message': 'No se encontraron filas que cumplan los criterios'})
+
+    # Exportar resultado a Excel
+    out_dir = os.path.join(settings.MEDIA_ROOT, 'exports')
+    os.makedirs(out_dir, exist_ok=True)
+    out_name = f'filtered_{uuid.uuid4().hex}.xlsx'
+    out_path = os.path.join(out_dir, out_name)
+    try:
+        filtered.to_excel(out_path, index=False)
+    except Exception as e:
+        return HttpResponseBadRequest(f'Error exportando Excel: {e}')
+
+    return JsonResponse({'results': len(filtered), 'download': f'/media/exports/{out_name}'})
