@@ -22,6 +22,49 @@ from .models import User, Search
 JOBS = {}
 
 
+def fetch_email_from_website(url: str, timeout: int = 8) -> str | None:
+    """Intenta extraer un email desde la página indicada.
+    - Normaliza la URL añadiendo esquema si falta.
+    - Busca primero enlaces mailto:, si no encuentra busca con regex en el HTML.
+    - Devuelve la primera dirección válida encontrada o None.
+    """
+    import re
+
+    if not url:
+        return None
+    # Normalizar esquema
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "http://" + url.lstrip("/")
+
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)"}
+    try:
+        r = requests.get(url, headers=headers, timeout=timeout)
+        r.raise_for_status()
+        html = r.text or ""
+    except Exception:
+        return None
+
+    # Buscar mailto: primero
+    m = re.search(r"mailto:([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})", html, re.I)
+    if m:
+        return m.group(1).lower()
+
+    # Buscar direcciones de correo en el HTML
+    # Limitamos el tamaño buscado para evitar escanear megabytes innecesarios
+    snippet = html[:200000]
+    found = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", snippet)
+    if not found:
+        return None
+    # Devolver la primera que no parezca un placeholder genérico vacio
+    for e in found:
+        e_l = e.lower()
+        # Filtrar valores que son claramente parte de ejemplos o rutas
+        if any(x in e_l for x in ("example.com", "domain.com", "test@test", "no-reply", "noreply")):
+            continue
+        return e_l
+    return None
+
+
 @ensure_csrf_cookie
 @login_required
 def home(request):
@@ -237,6 +280,8 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
     seen_keys = set()
     per_batch = min(100, max(10, limit))
     query_modifiers = ["", "centro", "norte", "sur"]
+    # Cache local para emails por URL dentro de la misma ejecución (evita múltiples requests)
+    email_cache: dict[str, str | None] = {}
 
     for mod in query_modifiers:
         q = f"{category} {postal_code} {mod}".strip()
@@ -277,10 +322,24 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
             if dedup_key in seen_keys:
                 continue
             seen_keys.add(dedup_key)
+            # Intentar obtener email desde la web si hay sitio
+            email_value: str | None = None
+            try:
+                if website:
+                    # Normalizar y cachear
+                    w = website.strip()
+                    cached = email_cache.get(w)
+                    if cached is None:
+                        cached = fetch_email_from_website(w)
+                        email_cache[w] = cached
+                    email_value = cached
+            except Exception:
+                email_value = None
+
             aggregated.append({
                 "name": name or "-",
                 "phone": phone or "-",
-                "email": "-",
+                "email": (email_value or "-"),
                 "address": address or (website or "-"),
             })
             if len(aggregated) >= limit:
