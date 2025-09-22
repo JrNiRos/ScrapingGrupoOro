@@ -255,6 +255,24 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
             phone = item.get("phoneNumber") or item.get("phone")
             website = item.get("website")
             address = item.get("address") or item.get("streetAddress") or item.get("fullAddress")
+            # Asegurar que los resultados pertenezcan a España.
+            # Priorizar coincidencia por código postal si está presente en la dirección.
+            addr_l = (address or "").lower()
+            postal_ok = False
+            if postal_code and postal_code in addr_l:
+                postal_ok = True
+            # También aceptar si la dirección contiene indicación explícita de España
+            if not postal_ok and ('espa' in addr_l or ' spain' in addr_l):
+                postal_ok = True
+            # Si no podemos confirmar que es España, descartamos el resultado para evitar ficheros con datos de otros países
+            if not postal_ok:
+                # También comprobamos campos auxiliares que puedan indicar país (ej. country o location)
+                country = (item.get('country') or '')
+                if isinstance(country, str) and country.lower().startswith('es'):
+                    postal_ok = True
+            if not postal_ok:
+                # skip result not confirmed in Spain
+                continue
             dedup_key = f"{(name or '').strip().lower()}|{(address or '').strip().lower()}"
             if dedup_key in seen_keys:
                 continue
