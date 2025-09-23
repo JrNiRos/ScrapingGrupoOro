@@ -1,18 +1,13 @@
 from django import forms
 
-# Intentar usar pycountry para obtener la lista completa de países
-try:
-    import pycountry
-    COUNTRY_CHOICES = sorted([(c.alpha_2, f"{c.name} ({c.alpha_2})") for c in pycountry.countries], key=lambda x: x[1])
-except Exception:
-    # Fallback con algunos países comunes y ES por defecto
-    COUNTRY_CHOICES = [
-        ('ES', 'Spain (ES)'),
-        ('US', 'United States (US)'),
-        ('GB', 'United Kingdom (GB)'),
-        ('FR', 'France (FR)'),
-        ('DE', 'Germany (DE)'),
-    ]
+# Lista específica de países para el buscador de negocios
+COUNTRY_CHOICES = [
+    ('ES', 'España'),
+    ('FR', 'Francia'),
+    ('DE', 'Alemania'),
+    ('IT', 'Italia'),
+    ('BE', 'Bélgica'),
+]
 
 
 class SearchForm(forms.Form):
