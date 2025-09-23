@@ -355,9 +355,13 @@ html, body {
 
 /* Dashboard/Buscador Principal */
 .dashboard-container {
-  min-height: 100vh;
+  /* Altura ajustada para no tapar el footer y mantener el contenido centrado visualmente */
+  min-height: calc(100vh - 60px - 96px);
   background: var(--bg-primary);
   padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .search-container {
