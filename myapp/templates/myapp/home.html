@@ -18,12 +18,20 @@
         </div>
         <label for="country" class="text-sm font-medium text-neutral-200">País</label>
         <div>
-          {% comment %} Mostrar un select con los países provistos por el SearchForm {% endcomment %}
-          <select id="country" name="country" class="w-full rounded-xl bg-white/5 border border-white/10 text-white p-3">
-            {% for code, label in form.fields.country.choices %}
-              <option value="{{ code }}" {% if form.fields.country.initial == code %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
+          {% comment %} Selector personalizado para países sin sombreado azul {% endcomment %}
+          <div class="custom-select" id="country-select">
+            <div class="select-trigger" tabindex="0">
+              <span id="country-display">{% for code, label in form.fields.country.choices %}{% if form.fields.country.initial == code %}{{ label }}{% endif %}{% endfor %}</span>
+              <div class="select-arrow"></div>
+            </div>
+            <ul class="select-options">
+              {% for code, label in form.fields.country.choices %}
+                <li class="option {% if form.fields.country.initial == code %}selected{% endif %}" data-value="{{ code }}">{{ label }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <!-- Campo oculto para mantener compatibilidad con el formulario -->
+          <input type="hidden" id="country" name="country" value="{{ form.fields.country.initial }}">
         </div>
         
         <div class="flex gap-3">
@@ -46,6 +54,59 @@
     const statusEl = document.getElementById('status');
     const downloadEl = document.getElementById('download');
 
+    // Custom select functionality
+    const countrySelect = document.getElementById('country-select');
+    const countryTrigger = countrySelect.querySelector('.select-trigger');
+    const countryOptions = countrySelect.querySelector('.select-options');
+    const countryDisplay = document.getElementById('country-display');
+    const countryHidden = document.getElementById('country');
+
+    // Toggle dropdown
+    countryTrigger.addEventListener('click', () => {
+      countrySelect.classList.toggle('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!countrySelect.contains(e.target)) {
+        countrySelect.classList.remove('open');
+      }
+    });
+
+    // Handle option selection
+    countryOptions.addEventListener('click', (e) => {
+      if (e.target.classList.contains('option')) {
+        const selectedOption = e.target;
+        const selectedValue = selectedOption.getAttribute('data-value');
+        const selectedText = selectedOption.textContent;
+        
+        // Update display
+        countryDisplay.textContent = selectedText;
+        
+        // Update hidden input
+        countryHidden.value = selectedValue;
+        
+        // Update selected state
+        countryOptions.querySelectorAll('.option').forEach(option => {
+          option.classList.remove('selected');
+        });
+        selectedOption.classList.add('selected');
+        
+        // Close dropdown
+        countrySelect.classList.remove('open');
+      }
+    });
+
+    // Keyboard navigation
+    countryTrigger.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        countrySelect.classList.toggle('open');
+      } else if (e.key === 'Escape') {
+        countrySelect.classList.remove('open');
+      }
+    });
+
     function setLoading(isLoading) {
       submitBtn.disabled = isLoading;
       submitBtn.textContent = isLoading ? 'Procesando...' : 'Buscar y generar Excel';
@@ -59,6 +120,17 @@
       resetBtn.classList.add('hidden');
       submitBtn.disabled = false;
       submitBtn.textContent = 'Buscar y generar Excel';
+      
+      // Reset custom select to default (Spain)
+      const defaultOption = countryOptions.querySelector('[data-value="ES"]');
+      if (defaultOption) {
+        countryDisplay.textContent = defaultOption.textContent;
+        countryHidden.value = 'ES';
+        countryOptions.querySelectorAll('.option').forEach(option => {
+          option.classList.remove('selected');
+        });
+        defaultOption.classList.add('selected');
+      }
     });
 
     // Normalize postal code: remove non-digits and take first 5 digits
