@@ -2,11 +2,12 @@ from django import forms
 
 # Lista específica de países para el buscador de negocios
 COUNTRY_CHOICES = [
-    ('ES', 'España'),
-    ('FR', 'Francia'),
-    ('DE', 'Alemania'),
-    ('IT', 'Italia'),
-    ('BE', 'Bélgica'),
+    ('ES', 'España (ES)'),
+    ('FR', 'Francia (FR)'),
+    ('DE', 'Alemania (DE)'),
+    ('IT', 'Italia (IT)'),
+    ('BE', 'Bélgica (BE)'),
+    ('PT', 'Portugal (PT)'),
 ]
 
 
