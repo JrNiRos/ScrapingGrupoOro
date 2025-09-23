@@ -39,7 +39,7 @@
   {% block head %}{% endblock %}
   {% csrf_token %}
 </head>
-<body class="min-h-screen flex flex-col" style="background: var(--bg-primary); color: var(--text-primary);">
+<body class="app-container" style="background: var(--bg-primary); color: var(--text-primary);">
   <header class="site-header">
     <a href="/" class="brand">
       <img src="{% static 'favicon/img/GrupoOroIcono_round.png' %}" alt="Grupo Oro" style="height: 32px; width: 32px; border-radius: 6px;" />
@@ -56,33 +56,38 @@
     </div>
   </header>
 
-  <main class="flex-1">
-    <div class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
-      {# Mensajes de Django (éxito/error/info) #}
-      {% if messages %}
-        <div style="margin-bottom: 24px;">
-          {% for message in messages %}
-            <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}">
-              <div style="display: flex; align-items: flex-start; gap: 12px;">
-                <div style="flex: 1;">
-                  <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">{{ message.tags|capfirst }}</div>
-                  <div style="color: var(--text-secondary);">{{ message }}</div>
-                </div>
-                <button type="button" class="close-msg" style="color: var(--text-muted); background: none; border: none; cursor: pointer; font-size: 1.2rem;">✕</button>
-              </div>
+  <!-- Container de notificaciones fijo -->
+  <div class="notification-container">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="notification alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}">
+          <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">{{ message.tags|capfirst }}</div>
+              <div style="color: var(--text-secondary);">{{ message }}</div>
             </div>
-          {% endfor %}
+            <button type="button" class="close-msg" style="color: var(--text-muted); background: none; border: none; cursor: pointer; font-size: 1.2rem;">✕</button>
+          </div>
         </div>
-        <script>
-          document.querySelectorAll('.close-msg').forEach(btn => btn.addEventListener('click', e => { e.target.closest('.alert').remove(); }));
-        </script>
-      {% endif %}
+      {% endfor %}
+      <script>
+        document.querySelectorAll('.close-msg').forEach(btn => btn.addEventListener('click', e => { e.target.closest('.notification').remove(); }));
+        // Auto-hide notifications after 5 seconds
+        setTimeout(() => {
+          document.querySelectorAll('.notification').forEach(notification => {
+            notification.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => notification.remove(), 300);
+          });
+        }, 5000);
+      </script>
+    {% endif %}
+  </div>
 
-      {% block content %}{% endblock %}
-    </div>
+  <main style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+    {% block content %}{% endblock %}
   </main>
 
-  <footer class="site-footer">
+  <footer class="site-footer" style="height: var(--footer-height); min-height: var(--footer-height); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
     © 2025 Grupo Oro – Todos los derechos reservados
   </footer>
 </body>

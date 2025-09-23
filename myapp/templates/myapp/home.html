@@ -8,6 +8,11 @@
       <p>Introduce un <strong>CP</strong> (5 dígitos en España) y escribe el <strong>tipo de negocio</strong> (ej. peluquería, panadería). Generaremos un Excel con resultados.</p>
     </div>
 
+    <!-- Botón para colapsar filtros en pantallas pequeñas -->
+    <button class="filters-toggle" id="filters-toggle" onclick="toggleFilters()">
+      <span id="toggle-text">Ocultar filtros</span> ▲
+    </button>
+
     <form id="scrape-form" onsubmit="return false;" class="search-form">
       <div class="form-group">
         <label for="postal_code" class="form-label">Código Postal</label>
@@ -45,6 +50,48 @@
       <div id="status" class="text-secondary"></div>
       <div id="download"></div>
     </form>
+  </div>
+  
+  <!-- Área de resultados con scroll interno -->
+  <div class="results-section" id="results-section" style="display: none;">
+    <div class="results-header">
+      <h2>Resultados de la búsqueda</h2>
+    </div>
+    <div class="results-content" id="results-content">
+      <!-- Ejemplo de tabla de resultados (se reemplazará con datos reales) -->
+      <div class="loading-overlay" id="loading-overlay" style="display: none;">
+        <div>
+          <div class="loading-spinner"></div>
+          <div class="loading-text">Procesando búsqueda...</div>
+        </div>
+      </div>
+      
+      <!-- Tabla de ejemplo (se mostrará cuando haya resultados) -->
+      <table class="results-table" id="results-table" style="display: none;">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Dirección</th>
+            <th>Teléfono</th>
+            <th>Categoría</th>
+            <th>Valoración</th>
+          </tr>
+        </thead>
+        <tbody id="results-tbody">
+          <!-- Los resultados se insertarán aquí dinámicamente -->
+        </tbody>
+      </table>
+      
+      <!-- Paginación de ejemplo -->
+      <div class="pagination" id="pagination" style="display: none;">
+        <button class="pagination-button" onclick="changePage('prev')" id="prev-btn">‹</button>
+        <button class="pagination-button active" onclick="changePage(1)">1</button>
+        <button class="pagination-button" onclick="changePage(2)">2</button>
+        <button class="pagination-button" onclick="changePage(3)">3</button>
+        <div class="pagination-info">Página 1 de 3</div>
+        <button class="pagination-button" onclick="changePage('next')" id="next-btn">›</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -254,6 +301,113 @@
       }
       return cookieValue;
     }
+    
+    // Función para colapsar/expandir filtros en pantallas pequeñas
+    function toggleFilters() {
+      const searchContainer = document.querySelector('.search-container');
+      const toggleButton = document.getElementById('filters-toggle');
+      const toggleText = document.getElementById('toggle-text');
+      
+      if (searchContainer.classList.contains('collapsed')) {
+        searchContainer.classList.remove('collapsed');
+        toggleText.textContent = 'Ocultar filtros';
+        toggleButton.innerHTML = '<span id="toggle-text">Ocultar filtros</span> ▲';
+      } else {
+        searchContainer.classList.add('collapsed');
+        toggleText.textContent = 'Mostrar filtros';
+        toggleButton.innerHTML = '<span id="toggle-text">Mostrar filtros</span> ▼';
+      }
+    }
+    
+    // Auto-mostrar resultados cuando hay datos
+    function showResults() {
+      const resultsSection = document.getElementById('results-section');
+      if (resultsSection) {
+        resultsSection.style.display = 'flex';
+      }
+    }
+    
+    // Auto-ocultar resultados al resetear
+    function hideResults() {
+      const resultsSection = document.getElementById('results-section');
+      if (resultsSection) {
+        resultsSection.style.display = 'none';
+      }
+    }
+    
+    // Modificar la función de reset para ocultar resultados
+    const originalResetHandler = resetBtn.onclick;
+    resetBtn.addEventListener('click', () => {
+      originalResetHandler();
+      hideResults();
+    });
+    
+    // Función para manejar paginación
+    function changePage(page) {
+      const buttons = document.querySelectorAll('.pagination-button');
+      buttons.forEach(btn => btn.classList.remove('active'));
+      
+      if (typeof page === 'number') {
+        buttons[page].classList.add('active');
+        document.querySelector('.pagination-info').textContent = `Página ${page} de 3`;
+      }
+      // Aquí se cargarían los datos de la nueva página
+    }
+    
+    // Función para mostrar datos de ejemplo (para demostración)
+    function showExampleResults() {
+      const tbody = document.getElementById('results-tbody');
+      const exampleData = [
+        ['Panadería San José', 'Calle Mayor 123, 28001 Madrid', '912345678', 'Panadería', '4.5★'],
+        ['Panadería El Horno', 'Calle Gran Vía 45, 28001 Madrid', '912345679', 'Panadería', '4.2★'],
+        ['Pan y Más', 'Calle Alcalá 67, 28001 Madrid', '912345680', 'Panadería', '4.8★'],
+        ['Panadería Central', 'Plaza Mayor 12, 28001 Madrid', '912345681', 'Panadería', '4.1★'],
+        ['El Pan Dorado', 'Calle Toledo 89, 28001 Madrid', '912345682', 'Panadería', '4.6★']
+      ];
+      
+      tbody.innerHTML = '';
+      exampleData.forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach((cell, index) => {
+          const td = document.createElement('td');
+          td.textContent = cell;
+          // Añadir data-label para responsive cards
+          const labels = ['Nombre', 'Dirección', 'Teléfono', 'Categoría', 'Valoración'];
+          td.setAttribute('data-label', labels[index]);
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      
+      document.getElementById('results-table').style.display = 'table';
+      document.getElementById('pagination').style.display = 'flex';
+      showResults();
+    }
+    
+    // Función para simular búsqueda (para demostración)
+    function simulateSearch() {
+      document.getElementById('loading-overlay').style.display = 'flex';
+      showResults();
+      
+      setTimeout(() => {
+        document.getElementById('loading-overlay').style.display = 'none';
+        showExampleResults();
+      }, 2000);
+    }
+    
+    // Añadir evento al botón de búsqueda para demostración
+    document.getElementById('submit').addEventListener('click', (e) => {
+      e.preventDefault();
+      const postalCode = document.getElementById('postal_code').value;
+      const category = document.getElementById('category').value;
+      
+      if (postalCode && category) {
+        simulateSearch();
+      } else {
+        alert('Por favor, completa todos los campos');
+      }
+    });
+    
     // No hay select predefinido: category es un campo de texto libre
   </script>
   <!-- No custom select JS: categoría ahora es un input de texto libre -->
