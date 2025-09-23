@@ -151,9 +151,10 @@ html, body {
   background: var(--gradient-gold);
   color: var(--bg-quaternary);
   border: none;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--border-radius);
   font-weight: 600;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: var(--transition);
 }
@@ -203,6 +204,14 @@ html, body {
   cursor: pointer;
   transition: var(--transition);
   text-decoration: none;
+}
+
+/* Botones más pequeños dentro del header en todas las páginas */
+.site-header .btn-primary,
+.site-header .btn-secondary {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.9rem;
+  border-radius: 6px;
 }
 
 .btn-secondary:hover {
@@ -280,12 +289,11 @@ html, body {
 
 /* Páginas de autenticación */
 .auth-container {
-  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gradient-dark);
-  padding: var(--spacing-lg);
+  background: var(--bg-primary);
+  padding: var(--spacing-md);
 }
 
 .auth-card {
@@ -353,9 +361,8 @@ html, body {
 
 /* Dashboard/Buscador Principal */
 .dashboard-container {
-  min-height: 100vh;
   background: var(--bg-primary);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md);
 }
 
 .search-container {
@@ -449,7 +456,7 @@ html, body {
 /* Footer */
 .site-footer {
   border-top: 1px solid var(--border-color);
-  padding: var(--spacing-xl) 0;
+  padding: var(--spacing-md) 0;
   color: var(--text-secondary);
   text-align: center;
   background: var(--bg-secondary);
