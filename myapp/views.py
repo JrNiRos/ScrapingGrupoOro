@@ -174,16 +174,16 @@ def start_scrape(request):
         postal_code = ''.join(ch for ch in raw_postal if ch.isalnum())[:10]
         category = (body.get("category") or "").strip()
         country = (body.get("country") or "ES").strip().upper()
-        limit = 100
+        limit = 500  # Aumentar límite para obtener más resultados
     except Exception:
         return HttpResponseBadRequest("JSON inválido")
 
     if not postal_code or not category:
         return HttpResponseBadRequest("El código postal y la categoría son obligatorios")
     import re
-    # Validación dependiente del país seleccionado
+    # Validación específica por país para mayor precisión
     if country == 'ES':
-        # Forzar formato español: 5 dígitos y prefijo provincial 01-52
+        # España: 5 dígitos y prefijo provincial 01-52
         if not re.fullmatch(r"\d{5}", postal_code):
             return HttpResponseBadRequest("El código postal debe tener 5 dígitos (España)")
         try:
@@ -192,15 +192,35 @@ def start_scrape(request):
             return HttpResponseBadRequest("Código postal inválido")
         if province < 1 or province > 52:
             return HttpResponseBadRequest("El código postal debe pertenecer a España (prefijo 01–52)")
+    elif country == 'FR':
+        # Francia: 5 dígitos
+        if not re.fullmatch(r"\d{5}", postal_code):
+            return HttpResponseBadRequest("El código postal debe tener 5 dígitos (Francia)")
+    elif country == 'DE':
+        # Alemania: 5 dígitos
+        if not re.fullmatch(r"\d{5}", postal_code):
+            return HttpResponseBadRequest("El código postal debe tener 5 dígitos (Alemania)")
+    elif country == 'IT':
+        # Italia: 5 dígitos
+        if not re.fullmatch(r"\d{5}", postal_code):
+            return HttpResponseBadRequest("El código postal debe tener 5 dígitos (Italia)")
+    elif country == 'BE':
+        # Bélgica: 4 dígitos
+        if not re.fullmatch(r"\d{4}", postal_code):
+            return HttpResponseBadRequest("El código postal debe tener 4 dígitos (Bélgica)")
+    elif country == 'PT':
+        # Portugal: XXXX-XXX o XXXXXXX
+        if not re.fullmatch(r"\d{4}-?\d{3}", postal_code):
+            return HttpResponseBadRequest("El código postal debe tener formato XXXX-XXX (Portugal)")
     else:
-        # Para otros países aceptamos códigos alfanuméricos razonables (1-10 chars)
-        if not postal_code or len(postal_code) > 10:
+        # Para otros países: validación genérica
+        if not postal_code or len(postal_code) < 3 or len(postal_code) > 10:
             return HttpResponseBadRequest("Introduce un código postal válido para el país seleccionado")
-    # Clamp for safety
+    # Clamp for safety - aumentar límite máximo para más resultados
     if limit < 1:
         limit = 1
-    if limit > 100:
-        limit = 100
+    if limit > 500:
+        limit = 500
 
     # Require api_key on user
     if not (getattr(request.user, 'api_key', None)):
@@ -291,58 +311,211 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
     # We diversify the query with modifiers to expand coverage and then deduplicate.
     aggregated: list[dict] = []
     seen_keys = set()
-    per_batch = min(100, max(10, limit))
-    query_modifiers = ["", "centro", "norte", "sur"]
+    per_batch = min(100, max(10, limit // 4))  # Dividir entre más consultas
+    # Ampliar estrategias de consulta para maximizar resultados
+    base_modifiers = [
+        "",  # Consulta base
+        "centro", "norte", "sur", "este", "oeste",  # Zonas geográficas
+        "cerca", "próximo", "local", "zona",  # Términos de proximidad
+        "tienda", "negocio", "empresa", "comercio",  # Términos comerciales
+        "servicio", "profesional", "especialista"  # Términos de servicio
+    ]
+    
+    # Agregar modificadores específicos por país para mayor cobertura
+    country_specific = []
+    if country == 'ES':
+        country_specific = ["barrio", "distrito", "municipio", "localidad", "pueblo"]
+    elif country == 'FR':
+        country_specific = ["quartier", "arrondissement", "commune", "ville"]
+    elif country == 'DE':
+        country_specific = ["stadtteil", "bezirk", "gemeinde", "stadt"]
+    elif country == 'IT':
+        country_specific = ["quartiere", "zona", "comune", "città"]
+    elif country == 'BE':
+        country_specific = ["wijk", "gemeente", "stad", "commune"]
+    elif country == 'PT':
+        country_specific = ["bairro", "freguesia", "concelho", "cidade"]
+    
+    query_modifiers = base_modifiers + country_specific
     # Cache local para emails por URL dentro de la misma ejecución (evita múltiples requests)
     email_cache: dict[str, str | None] = {}
 
     for mod in query_modifiers:
-        q = f"{category} {postal_code} {mod}".strip()
+        # Construir consulta más específica incluyendo el país para mayor precisión
+        country_name = ""
+        if country == 'ES':
+            country_name = "España"
+        elif country == 'FR':
+            country_name = "France"
+        elif country == 'DE':
+            country_name = "Germany"
+        elif country == 'IT':
+            country_name = "Italy"
+        elif country == 'BE':
+            country_name = "Belgium"
+        elif country == 'PT':
+            country_name = "Portugal"
+        
+        # Crear consultas más variadas para maximizar cobertura
+        if mod == "":
+            # Consulta base más específica
+            q = f"{category} {postal_code} {country_name}".strip()
+        elif mod in ["centro", "norte", "sur", "este", "oeste"]:
+            # Consultas geográficas
+            q = f"{category} {postal_code} {mod} {country_name}".strip()
+        elif mod in ["cerca", "próximo", "local", "zona"]:
+            # Consultas de proximidad
+            q = f"{category} {mod} {postal_code} {country_name}".strip()
+        elif mod in ["tienda", "negocio", "empresa", "comercio"]:
+            # Consultas comerciales
+            q = f"{mod} {category} {postal_code} {country_name}".strip()
+        elif mod in ["servicio", "profesional", "especialista"]:
+            # Consultas de servicio
+            q = f"{category} {mod} código postal {postal_code} {country_name}".strip()
+        else:
+            # Modificadores específicos por país (barrio, quartier, stadtteil, etc.)
+            q = f"{category} {mod} {postal_code} {country_name}".strip()
+        
         # Usar el country ISO alpha-2 para parámetros regionales (gl) en Serper/Google local
         gl = (country or 'ES').lower()
         hl = 'es' if gl == 'es' else 'en'
         payload = {"q": q, "gl": gl, "hl": hl, "num": per_batch}
-        r = requests.post(url, headers=headers, data=json.dumps(payload), timeout=45)
-        if r.status_code == 401:
-            raise RuntimeError("API key de Serper inválida o sin permisos")
-        # Some plans return 404 for unsupported params; just continue to next mod
-        if r.status_code == 404:
-            continue
-        r.raise_for_status()
-        data = r.json()
-        results = data.get("places") or data.get("localResults") or data.get("placeResults") or []
+        
+        # Reintentos para maximizar obtención de resultados
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                r = requests.post(url, headers=headers, data=json.dumps(payload), timeout=45)
+                if r.status_code == 401:
+                    raise RuntimeError("API key de Serper inválida o sin permisos")
+                # Some plans return 404 for unsupported params; just continue to next mod
+                if r.status_code == 404:
+                    break
+                if r.status_code == 429:  # Rate limit
+                    if attempt < max_retries:
+                        import time
+                        time.sleep(2 ** attempt)  # Backoff exponencial
+                        continue
+                    else:
+                        break
+                r.raise_for_status()
+                data = r.json()
+                results = data.get("places") or data.get("localResults") or data.get("placeResults") or []
+                break
+            except Exception as e:
+                if attempt < max_retries:
+                    continue
+                else:
+                    # En caso de error, continuar con el siguiente modificador
+                    results = []
+                    break
         for item in results:
             name = item.get("title") or item.get("name")
             phone = item.get("phoneNumber") or item.get("phone")
             website = item.get("website")
             address = item.get("address") or item.get("streetAddress") or item.get("fullAddress")
-            # Asegurar que los resultados pertenezcan a España.
-            # Priorizar coincidencia por código postal si está presente en la dirección.
+            # Filtrado estricto: asegurar que los resultados pertenezcan exactamente al código postal y país seleccionados
             addr_l = (address or "").lower()
             postal_ok = False
-            # Prefer match by postal code in the address
-            if postal_code and postal_code in addr_l:
-                postal_ok = True
-            # Also accept if the address explicitly contains the selected country name or ISO code
-            if not postal_ok:
-                # Some providers include a 'country' field
-                country_field = (item.get('country') or '')
-                if isinstance(country_field, str) and country_field:
-                    if country_field.lower().startswith(country.lower()):
+            
+            # Validación estricta por código postal
+            if postal_code and address:
+                # Buscar el código postal como palabra completa, no como substring
+                import re
+                # Para España: buscar el código postal exacto (5 dígitos)
+                if country == 'ES':
+                    postal_pattern = rf'\b{re.escape(postal_code)}\b'
+                    if re.search(postal_pattern, addr_l):
                         postal_ok = True
-                # Check for country names snippets (basic, not exhaustive)
-                if not postal_ok:
-                    if gl == 'es' and ('espa' in addr_l or ' spain' in addr_l):
-                        postal_ok = True
-                    elif gl != 'es' and (gl in addr_l or country.lower() in addr_l):
-                        postal_ok = True
-            if not postal_ok:
-                # skip result not confirmed in the selected country
+                else:
+                    # Para otros países: buscar el código postal exacto considerando formatos con espacios/guiones
+                    postal_clean = postal_code.replace(' ', '').replace('-', '')
+                    addr_clean = addr_l.replace(' ', '').replace('-', '')
+                    if postal_clean in addr_clean:
+                        # Verificación adicional: buscar el código postal como palabra completa
+                        postal_pattern = rf'\b{re.escape(postal_code)}\b'
+                        if re.search(postal_pattern, addr_l):
+                            postal_ok = True
+            
+            # Validación estricta por país
+            country_ok = False
+            if postal_ok:
+                # Verificar que el resultado pertenece al país correcto
+                country_field = (item.get('country') or '').strip()
+                
+                # 1. Verificar campo 'country' directo de la API
+                if country_field:
+                    if country_field.upper() == country.upper():
+                        country_ok = True
+                
+                # 2. Si no hay campo country o no coincide, verificar por patrones en la dirección
+                if not country_ok:
+                    if country == 'ES':
+                        # Para España: buscar indicadores específicos
+                        spain_indicators = ['españa', 'spain', 'es ', ', es', 'madrid', 'barcelona', 'valencia', 'sevilla', 'zaragoza']
+                        if any(indicator in addr_l for indicator in spain_indicators):
+                            country_ok = True
+                    elif country == 'FR':
+                        # Para Francia: buscar indicadores específicos
+                        france_indicators = ['france', 'francia', 'fr ', ', fr', 'paris', 'lyon', 'marseille']
+                        if any(indicator in addr_l for indicator in france_indicators):
+                            country_ok = True
+                    elif country == 'DE':
+                        # Para Alemania: buscar indicadores específicos
+                        germany_indicators = ['germany', 'alemania', 'deutschland', 'de ', ', de', 'berlin', 'munich', 'hamburg']
+                        if any(indicator in addr_l for indicator in germany_indicators):
+                            country_ok = True
+                    elif country == 'IT':
+                        # Para Italia: buscar indicadores específicos
+                        italy_indicators = ['italy', 'italia', 'it ', ', it', 'roma', 'milano', 'napoli']
+                        if any(indicator in addr_l for indicator in italy_indicators):
+                            country_ok = True
+                    elif country == 'BE':
+                        # Para Bélgica: buscar indicadores específicos
+                        belgium_indicators = ['belgium', 'bélgica', 'belgique', 'be ', ', be', 'brussels', 'bruxelles', 'antwerp']
+                        if any(indicator in addr_l for indicator in belgium_indicators):
+                            country_ok = True
+                    elif country == 'PT':
+                        # Para Portugal: buscar indicadores específicos
+                        portugal_indicators = ['portugal', 'pt ', ', pt', 'lisboa', 'porto', 'coimbra']
+                        if any(indicator in addr_l for indicator in portugal_indicators):
+                            country_ok = True
+                    else:
+                        # Para otros países: verificación genérica
+                        if country.lower() in addr_l or gl in addr_l:
+                            country_ok = True
+            
+            # Solo incluir resultados que cumplan ambas condiciones: código postal Y país correctos
+            if not (postal_ok and country_ok):
                 continue
-            dedup_key = f"{(name or '').strip().lower()}|{(address or '').strip().lower()}"
-            if dedup_key in seen_keys:
+            
+            # Deduplicación más inteligente para evitar perder resultados válidos
+            name_clean = (name or '').strip().lower()
+            address_clean = (address or '').strip().lower()
+            phone_clean = (phone or '').strip().lower()
+            website_clean = (website or '').strip().lower()
+            
+            # Crear múltiples claves de deduplicación para mayor precisión
+            dedup_keys = [
+                f"{name_clean}|{address_clean}",  # Clave principal: nombre + dirección
+                f"{name_clean}|{phone_clean}" if phone_clean and phone_clean != "-" else None,  # nombre + teléfono
+                f"{address_clean}|{phone_clean}" if phone_clean and phone_clean != "-" else None,  # dirección + teléfono
+            ]
+            
+            # Verificar si ya existe alguna combinación
+            is_duplicate = False
+            for key in dedup_keys:
+                if key and key in seen_keys:
+                    is_duplicate = True
+                    break
+            
+            if is_duplicate:
                 continue
-            seen_keys.add(dedup_key)
+                
+            # Agregar todas las claves válidas al conjunto
+            for key in dedup_keys:
+                if key:
+                    seen_keys.add(key)
             # Intentar obtener email desde la web si hay sitio
             email_value: str | None = None
             try:
@@ -363,8 +536,8 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
                 "email": (email_value or "-"),
                 "address": address or (website or "-"),
             })
-            if len(aggregated) >= limit:
-                break
+            # No cortar aquí - permitir que se procesen todos los modificadores
+        # Solo verificar límite entre diferentes modificadores para mejor distribución
         if len(aggregated) >= limit:
             break
 

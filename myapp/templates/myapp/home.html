@@ -4,14 +4,15 @@
 <div class="dashboard-container">
   <div class="search-container">
     <div class="search-header">
-      <h1>Búsqueda por Código Postal y Categoría</h1>
-      <p>Introduce un <strong>CP</strong> (5 dígitos en España) y escribe el <strong>tipo de negocio</strong> (ej. peluquería, panadería). Generaremos un Excel con resultados.</p>
+      <h1>Búsqueda Exhaustiva por Código Postal y Categoría</h1>
+      <p>Introduce un <strong>CP exacto</strong> y el <strong>tipo de negocio</strong> que buscas. Obtendremos <strong>todos los resultados posibles</strong> del código postal seleccionado y generaremos un Excel completo.</p>
     </div>
 
     <form id="scrape-form" onsubmit="return false;" class="search-form">
       <div class="form-group">
         <label for="postal_code" class="form-label">Código Postal</label>
-        <input id="postal_code" name="postal_code" type="text" inputmode="numeric" pattern="\d{5}" maxlength="5" placeholder="28001" aria-label="Código postal" class="input-field" />
+        <input id="postal_code" name="postal_code" type="text" inputmode="numeric" maxlength="8" placeholder="28001" aria-label="Código postal" class="input-field" />
+        <small id="postal-hint" class="text-xs text-gray-400 mt-1">España: 5 dígitos (ej. 28001)</small>
       </div>
 
       <div class="form-group">
@@ -38,7 +39,7 @@
       </div>
       
       <div class="search-button-container">
-        <button id="submit" class="btn-primary" type="submit">Buscar y generar Excel</button>
+        <button id="submit" class="btn-primary" type="submit">Búsqueda Exhaustiva y Generar Excel</button>
         <button id="reset" class="btn-secondary hidden" type="button">Nueva búsqueda</button>
       </div>
       
@@ -96,10 +97,59 @@
         });
         selectedOption.classList.add('selected');
         
+        // Update postal code hint and validation
+        updatePostalCodeHint(selectedValue);
+        
         // Close dropdown
         countrySelect.classList.remove('open');
       }
     });
+
+    // Function to update postal code hint based on selected country
+    function updatePostalCodeHint(country) {
+      const postalHint = document.getElementById('postal-hint');
+      const postalInput = document.getElementById('postal_code');
+      
+      switch(country) {
+        case 'ES':
+          postalHint.textContent = 'España: 5 dígitos (ej. 28001)';
+          postalInput.placeholder = '28001';
+          postalInput.maxLength = 5;
+          break;
+        case 'FR':
+          postalHint.textContent = 'Francia: 5 dígitos (ej. 75001)';
+          postalInput.placeholder = '75001';
+          postalInput.maxLength = 5;
+          break;
+        case 'DE':
+          postalHint.textContent = 'Alemania: 5 dígitos (ej. 10115)';
+          postalInput.placeholder = '10115';
+          postalInput.maxLength = 5;
+          break;
+        case 'IT':
+          postalHint.textContent = 'Italia: 5 dígitos (ej. 00118)';
+          postalInput.placeholder = '00118';
+          postalInput.maxLength = 5;
+          break;
+        case 'BE':
+          postalHint.textContent = 'Bélgica: 4 dígitos (ej. 1000)';
+          postalInput.placeholder = '1000';
+          postalInput.maxLength = 4;
+          break;
+        case 'PT':
+          postalHint.textContent = 'Portugal: XXXX-XXX (ej. 1000-001)';
+          postalInput.placeholder = '1000-001';
+          postalInput.maxLength = 8;
+          break;
+        default:
+          postalHint.textContent = 'Código postal del país seleccionado';
+          postalInput.placeholder = '';
+          postalInput.maxLength = 10;
+      }
+      
+      // Clear current value when country changes
+      postalInput.value = '';
+    }
 
     // Keyboard navigation
     countryTrigger.addEventListener('keydown', (e) => {
@@ -113,7 +163,7 @@
 
     function setLoading(isLoading) {
       submitBtn.disabled = isLoading;
-      submitBtn.textContent = isLoading ? 'Procesando...' : 'Buscar y generar Excel';
+      submitBtn.textContent = isLoading ? 'Procesando...' : 'Búsqueda Exhaustiva y Generar Excel';
     }
 
     resetBtn.addEventListener('click', () => {
@@ -123,7 +173,7 @@
       downloadEl.innerHTML = '';
       resetBtn.classList.add('hidden');
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Buscar y generar Excel';
+      submitBtn.textContent = 'Búsqueda Exhaustiva y Generar Excel';
       
       // Reset custom select to default (Spain)
       const defaultOption = countryOptions.querySelector('[data-value="ES"]');
@@ -137,19 +187,41 @@
       }
     });
 
-    // Normalize postal code: remove non-digits and take first 5 digits
+    // Normalize postal code based on selected country
     postalCodeInput.addEventListener('input', () => {
-      postalCodeInput.value = postalCodeInput.value.replace(/\D/g, '').slice(0, 5);
+      const country = countryHidden.value || 'ES';
+      let value = postalCodeInput.value;
+      
+      if (country === 'PT') {
+        // Portugal: allow digits and hyphens, format as XXXX-XXX
+        value = value.replace(/[^\d-]/g, '');
+        if (value.length > 4 && !value.includes('-')) {
+          value = value.slice(0, 4) + '-' + value.slice(4);
+        }
+        postalCodeInput.value = value.slice(0, 8);
+      } else {
+        // Other countries: only digits
+        postalCodeInput.value = value.replace(/\D/g, '').slice(0, postalCodeInput.maxLength);
+      }
     });
 
     form.addEventListener('submit', async () => {
-  const postal_code = postalCodeInput.value.replace(/\W/g, '').slice(0, 10);
+      // Get postal code preserving format for Portugal
+      let postal_code = postalCodeInput.value.trim();
+      if (countryHidden.value === 'PT') {
+        // For Portugal, preserve the hyphen format
+        postal_code = postal_code.replace(/[^\d-]/g, '');
+      } else {
+        // For other countries, remove non-digits
+        postal_code = postal_code.replace(/\D/g, '');
+      }
+      
       let category = categoryInput.value.trim();
-  const country = (document.getElementById('country')?.value || 'ES').toUpperCase();
+      const country = (document.getElementById('country')?.value || 'ES').toUpperCase();
       if (category === 'otro' || category === 'Otro') {
         category = categoryOther.value.trim();
       }
-      // Validación básica: si el país seleccionado es ES, requerir 5 dígitos
+      // Validación específica por país para mayor precisión
       if (country === 'ES') {
         if (!/^\d{5}$/.test(postal_code)) {
           statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (España)';
@@ -160,8 +232,33 @@
           statusEl.textContent = 'Introduce un código postal español válido (prefijo 01–52)';
           return;
         }
+      } else if (country === 'FR') {
+        if (!/^\d{5}$/.test(postal_code)) {
+          statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (Francia)';
+          return;
+        }
+      } else if (country === 'DE') {
+        if (!/^\d{5}$/.test(postal_code)) {
+          statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (Alemania)';
+          return;
+        }
+      } else if (country === 'IT') {
+        if (!/^\d{5}$/.test(postal_code)) {
+          statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (Italia)';
+          return;
+        }
+      } else if (country === 'BE') {
+        if (!/^\d{4}$/.test(postal_code)) {
+          statusEl.textContent = 'Introduce un código postal válido de 4 dígitos (Bélgica)';
+          return;
+        }
+      } else if (country === 'PT') {
+        if (!/^\d{4}-?\d{3}$/.test(postal_code)) {
+          statusEl.textContent = 'Introduce un código postal válido formato XXXX-XXX (Portugal)';
+          return;
+        }
       } else {
-        if (!postal_code) {
+        if (!postal_code || postal_code.length < 3) {
           statusEl.textContent = 'Introduce un código postal válido para el país seleccionado';
           return;
         }
