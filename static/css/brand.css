@@ -280,7 +280,9 @@ html, body {
 
 /* Páginas de autenticación */
 .auth-container {
-  min-height: 100vh;
+  /* Restamos la altura del header (~60px) y un footer cómodo (~96px) 
+     para que el footer sea visible y la tarjeta quede centrada */
+  min-height: calc(100vh - 60px - 96px);
   display: flex;
   align-items: center;
   justify-content: center;
