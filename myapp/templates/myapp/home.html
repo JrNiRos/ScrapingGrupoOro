@@ -1,48 +1,52 @@
 {% extends 'base.html' %}
 {% block title %}Grupo Oro – Buscador{% endblock %}
 {% block content %}
-  <section class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-    <div class="lg:col-span-7 space-y-4">
-  <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Búsqueda por Código Postal y Categoría</h1>
-  <p class="text-neutral-300 text-lg">Introduce un <strong>CP</strong> (5 dígitos en España) y escribe el <strong>tipo de negocio</strong> (ej. peluquería, panadería). Generaremos un Excel con resultados.</p>
+<div class="dashboard-container">
+  <div class="search-container">
+    <div class="search-header">
+      <h1>Búsqueda por Código Postal y Categoría</h1>
+      <p>Introduce un <strong>CP</strong> (5 dígitos en España) y escribe el <strong>tipo de negocio</strong> (ej. peluquería, panadería). Generaremos un Excel con resultados.</p>
     </div>
 
-    <div class="lg:col-span-5">
-  <form id="scrape-form" onsubmit="return false;" class="bg-white/5 ring-1 ring-white/10 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
-        <label for="postal_code" class="text-sm font-medium text-neutral-200">Código Postal (España)</label>
-        <input id="postal_code" name="postal_code" type="text" inputmode="numeric" pattern="\d{5}" maxlength="5" placeholder="28001" aria-label="Código postal" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)] p-3" />
+    <form id="scrape-form" onsubmit="return false;" class="search-form">
+      <div class="form-group">
+        <label for="postal_code" class="form-label">Código Postal</label>
+        <input id="postal_code" name="postal_code" type="text" inputmode="numeric" pattern="\d{5}" maxlength="5" placeholder="28001" aria-label="Código postal" class="input-field" />
+      </div>
 
-        <label for="category" class="text-sm font-medium text-neutral-200">Categoría / Tipo de negocio</label>
-        <div>
-          <input id="category" name="category" type="text" placeholder="Ej. panadería, peluquería, taller mecánico" aria-label="Categoría" class="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-neutral-400 focus:border-[var(--gold)] focus:ring-[var(--gold)] p-3" />
-        </div>
-        <label for="country" class="text-sm font-medium text-neutral-200">País</label>
-        <div>
-          {% comment %} Selector personalizado para países sin sombreado azul {% endcomment %}
-          <div class="custom-select" id="country-select">
-            <div class="select-trigger" tabindex="0">
-              <span id="country-display">{% for code, label in form.fields.country.choices %}{% if form.fields.country.initial == code %}{{ label }}{% endif %}{% endfor %}</span>
-              <div class="select-arrow"></div>
-            </div>
-            <ul class="select-options">
-              {% for code, label in form.fields.country.choices %}
-                <li class="option {% if form.fields.country.initial == code %}selected{% endif %}" data-value="{{ code }}">{{ label }}</li>
-              {% endfor %}
-            </ul>
+      <div class="form-group">
+        <label for="category" class="form-label">Categoría / Tipo de negocio</label>
+        <input id="category" name="category" type="text" placeholder="Ej. panadería, peluquería, taller mecánico" aria-label="Categoría" class="input-field" />
+      </div>
+
+      <div class="form-group">
+        <label for="country" class="form-label">País</label>
+        {% comment %} Selector personalizado para países sin sombreado azul {% endcomment %}
+        <div class="custom-select" id="country-select">
+          <div class="select-trigger" tabindex="0">
+            <span id="country-display">{% for code, label in form.fields.country.choices %}{% if form.fields.country.initial == code %}{{ label }}{% endif %}{% endfor %}</span>
+            <div class="select-arrow"></div>
           </div>
-          <!-- Campo oculto para mantener compatibilidad con el formulario -->
-          <input type="hidden" id="country" name="country" value="{{ form.fields.country.initial }}">
+          <ul class="select-options">
+            {% for code, label in form.fields.country.choices %}
+              <li class="option {% if form.fields.country.initial == code %}selected{% endif %}" data-value="{{ code }}">{{ label }}</li>
+            {% endfor %}
+          </ul>
         </div>
-        
-        <div class="flex gap-3">
-          <button id="submit" class="inline-flex items-center justify-center rounded-xl bg-[var(--gold)] px-5 py-3 text-base font-semibold text-black shadow-sm hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold)]" type="submit">Buscar y generar Excel</button>
-          <button id="reset" class="inline-flex items-center justify-center rounded-xl border border-white/15 px-5 py-3 text-base font-semibold text-neutral-200 hover:bg-white/10 hidden" type="button">Nueva búsqueda</button>
-        </div>
-        <div id="status" class="text-sm text-neutral-300"></div>
-        <div id="download"></div>
-      </form>
-    </div>
-  </section>
+        <!-- Campo oculto para mantener compatibilidad con el formulario -->
+        <input type="hidden" id="country" name="country" value="{{ form.fields.country.initial }}">
+      </div>
+      
+      <div class="search-button-container">
+        <button id="submit" class="btn-primary" type="submit">Buscar y generar Excel</button>
+        <button id="reset" class="btn-secondary hidden" type="button">Nueva búsqueda</button>
+      </div>
+      
+      <div id="status" class="text-secondary"></div>
+      <div id="download"></div>
+    </form>
+  </div>
+</div>
 
   <script>
     const form = document.getElementById('scrape-form');

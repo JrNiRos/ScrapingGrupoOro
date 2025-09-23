@@ -39,24 +39,20 @@
   {% block head %}{% endblock %}
   {% csrf_token %}
 </head>
-<body class="min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col">
+<body class="min-h-screen flex flex-col" style="background: var(--bg-primary); color: var(--text-primary);">
   <header class="site-header">
-    <div class="max-w-5xl mx-auto px-6">
-      <div class="h-20 flex items-center justify-between">
-        <a href="/" class="brand">
-          <img src="{% static 'favicon/img/GrupoOroIcono_round.png' %}" alt="Grupo Oro" class="h-9 w-9 rounded-md shadow-sm" />
-          <span class="ml-2">Grupo <span class="oro">Oro</span></span>
-        </a>
-        <div class="flex items-center gap-3">
-          {% if request.user.is_authenticated %}
-            <span class="text-sm text-neutral-300 hidden sm:inline">{{ request.user.email }}</span>
-            <a href="/logout/" class="rounded-lg border border-white/15 px-3 py-1.5 text-sm hover:bg-white/10">Salir</a>
-            <a href="/profile/" class="ml-2 rounded-lg bg-white/5 px-3 py-1 text-sm hover:bg-white/10">Perfil</a>
-          {% else %}
-            <a href="/login/" class="btn-primary">Entrar</a>
-          {% endif %}
-        </div>
-      </div>
+    <a href="/" class="brand">
+      <img src="{% static 'favicon/img/GrupoOroIcono_round.png' %}" alt="Grupo Oro" style="height: 32px; width: 32px; border-radius: 6px;" />
+      <span>Grupo <span class="oro">Oro</span></span>
+    </a>
+    <div class="user-menu">
+      {% if request.user.is_authenticated %}
+        <span class="user-info">{{ request.user.email }}</span>
+        <a href="/profile/" class="btn-secondary">Perfil</a>
+        <a href="/logout/" class="logout-btn">Salir</a>
+      {% else %}
+        <a href="/login/" class="btn-primary">Entrar</a>
+      {% endif %}
     </div>
   </header>
 
@@ -64,19 +60,21 @@
     <div class="max-w-5xl mx-auto px-6 py-12 sm:py-16">
       {# Mensajes de Django (éxito/error/info) #}
       {% if messages %}
-        <div class="space-y-3 mb-6">
+        <div style="margin-bottom: 24px;">
           {% for message in messages %}
-            <div class="rounded-lg p-3 flex items-start gap-3 text-sm shadow-sm {% if message.tags %}bg-white/5 ring-1 ring-white/10 {% endif %}">
-              <div class="flex-1">
-                <div class="font-medium text-white">{{ message.tags|capfirst }}</div>
-                <div class="text-neutral-300">{{ message }}</div>
+            <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}">
+              <div style="display: flex; align-items: flex-start; gap: 12px;">
+                <div style="flex: 1;">
+                  <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">{{ message.tags|capfirst }}</div>
+                  <div style="color: var(--text-secondary);">{{ message }}</div>
+                </div>
+                <button type="button" class="close-msg" style="color: var(--text-muted); background: none; border: none; cursor: pointer; font-size: 1.2rem;">✕</button>
               </div>
-              <button type="button" class="text-neutral-400 hover:text-white close-msg">✕</button>
             </div>
           {% endfor %}
         </div>
         <script>
-          document.querySelectorAll('.close-msg').forEach(btn => btn.addEventListener('click', e => { e.target.closest('div').remove(); }));
+          document.querySelectorAll('.close-msg').forEach(btn => btn.addEventListener('click', e => { e.target.closest('.alert').remove(); }));
         </script>
       {% endif %}
 
@@ -85,9 +83,7 @@
   </main>
 
   <footer class="site-footer">
-    <div class="max-w-5xl mx-auto px-6 py-8 text-sm text-neutral-400">
-      © 2025 Grupo Oro – Todos los derechos reservados
-    </div>
+    © 2025 Grupo Oro – Todos los derechos reservados
   </footer>
 </body>
 </html>

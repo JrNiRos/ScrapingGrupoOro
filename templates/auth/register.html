@@ -1,31 +1,43 @@
 {% extends 'base.html' %}
 {% block title %}Registro – Grupo Oro{% endblock %}
 {% block content %}
-<div class="max-w-md mx-auto bg-white/5 ring-1 ring-white/10 rounded-2xl p-6">
-  <h1 class="text-2xl font-semibold mb-4">Crear cuenta</h1>
-  <form method="post">
-    {% csrf_token %}
-    {{ form.non_field_errors }}
-    <div class="space-y-3">
-      <div>
-        <label class="text-sm">Email</label>
-        <input type="email" name="email" required value="{{ form.email.value|default:'' }}" class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <h1>Crear cuenta</h1>
+      <p>Únete a Grupo Oro y comienza a buscar negocios</p>
+    </div>
+    
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      
+      <div class="form-group">
+        <label for="email" class="form-label">Email</label>
+        <input type="email" name="email" id="email" required value="{{ form.email.value|default:'' }}" class="input-field" placeholder="tu@email.com" />
         {{ form.email.errors }}
       </div>
-      <div>
-        <label class="text-sm">Contraseña</label>
-        <input type="password" name="password1" required class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+      
+      <div class="form-group">
+        <label for="password1" class="form-label">Contraseña</label>
+        <input type="password" name="password1" id="password1" required class="input-field" placeholder="Mínimo 8 caracteres" />
         {{ form.password1.errors }}
       </div>
-      <div>
-        <label class="text-sm">Confirmar contraseña</label>
-        <input type="password" name="password2" required class="w-full rounded-xl bg-white/5 border border-white/10 text-white px-3 py-2" />
+      
+      <div class="form-group">
+        <label for="password2" class="form-label">Confirmar contraseña</label>
+        <input type="password" name="password2" id="password2" required class="input-field" placeholder="Repite tu contraseña" />
         {{ form.password2.errors }}
       </div>
-      <button class="w-full rounded-xl bg-[var(--gold)] text-black font-semibold px-4 py-2">Crear cuenta</button>
+      
+      <button type="submit" class="btn-primary" style="width: 100%;">Crear cuenta</button>
+    </form>
+    
+    <div class="auth-links">
+      <p>¿Ya tienes cuenta? <a href="/login/">Inicia sesión</a></p>
     </div>
-  </form>
-  <p class="text-sm text-neutral-400 mt-4">¿Ya tienes cuenta? <a class="underline" href="/login/">Inicia sesión</a></p>
+  </div>
+</div>
 {% endblock %}
 
 
