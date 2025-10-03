@@ -172,7 +172,8 @@ def start_scrape(request):
         postal_code = ''.join(ch for ch in raw_postal if ch.isdigit())[:10]
         category = (body.get("category") or "").strip()
         country = (body.get("country") or "ES").strip().upper()
-        limit = 500
+        # Intentar obtener más resultados por búsqueda
+        limit = 1000
     except Exception:
         return HttpResponseBadRequest("JSON inválido")
 
@@ -211,8 +212,8 @@ def start_scrape(request):
     # Clamp for safety - aumentar límite máximo para más resultados
     if limit < 1:
         limit = 1
-    if limit > 500:
-        limit = 500
+    if limit > 1000:
+        limit = 1000
 
     # Resolver API key: usuario o settings (fallback) con saneado de espacios
     user_api_key_raw = getattr(request.user, 'api_key', None)
@@ -320,14 +321,14 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
     # We diversify the query with modifiers to expand coverage and then deduplicate.
     aggregated: list[dict] = []
     seen_keys = set()
-    per_batch = min(100, max(10, limit // 4))  # Dividir entre más consultas
+    per_batch = min(100, max(25, limit // 3))  # Dividir en menos consultas pero más grandes
     # Ampliar estrategias de consulta para maximizar resultados
     base_modifiers = [
         "",  # Consulta base
         "centro", "norte", "sur", "este", "oeste",  # Zonas geográficas
-        "cerca", "próximo", "local", "zona",  # Términos de proximidad
-        "tienda", "negocio", "empresa", "comercio",  # Términos comerciales
-        "servicio", "profesional", "especialista"  # Términos de servicio
+        "cerca", "próximo", "local", "zona", "cercano", "alrededor",  # Proximidad
+        "tienda", "negocio", "empresa", "comercio", "establecimiento",  # Comerciales
+        "servicio", "profesional", "especialista", "proveedor"  # Servicios
     ]
     
     # Agregar modificadores específicos por país para mayor cobertura
@@ -372,13 +373,13 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
         elif mod in ["centro", "norte", "sur", "este", "oeste"]:
             # Consultas geográficas
             q = f"{category} {postal_code} {mod} {country_name}".strip()
-        elif mod in ["cerca", "próximo", "local", "zona"]:
+        elif mod in ["cerca", "próximo", "local", "zona", "cercano", "alrededor"]:
             # Consultas de proximidad
             q = f"{category} {mod} {postal_code} {country_name}".strip()
-        elif mod in ["tienda", "negocio", "empresa", "comercio"]:
+        elif mod in ["tienda", "negocio", "empresa", "comercio", "establecimiento"]:
             # Consultas comerciales
             q = f"{mod} {category} {postal_code} {country_name}".strip()
-        elif mod in ["servicio", "profesional", "especialista"]:
+        elif mod in ["servicio", "profesional", "especialista", "proveedor"]:
             # Consultas de servicio
             q = f"{category} {mod} código postal {postal_code} {country_name}".strip()
         else:
@@ -494,8 +495,20 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
                         if country.lower() in addr_l or gl in addr_l:
                             country_ok = True
             
-            # Solo incluir resultados que cumplan ambas condiciones: código postal Y país correctos
+            # Para buscar aún más, cuando no hay coincidencia estricta por CP,
+            # aceptar coincidencia por nombre de ciudad en la dirección como fallback adicional.
+            # Mantener filtro por país para evitar ruido transfronterizo.
             if not (postal_ok and country_ok):
+                city_in_addr = False
+                if address and country_ok:
+                    # Intentar extraer ciudad de la consulta cuando el usuario la aportó
+                    # (no disponible en este método; solo activar fallback si la dirección contiene el CP
+                    # o si la API indica localidad/ciudad en campos secundarios)
+                    locality = (item.get('locality') or item.get('city') or item.get('suburb') or '').strip()
+                    if locality and _norm(locality) in addr_l:
+                        city_in_addr = True
+                if not city_in_addr:
+                    continue
                 continue
             
             # Deduplicación más inteligente para evitar perder resultados válidos
@@ -569,19 +582,28 @@ def scrape_businesses_by_city_and_category(city: str, category: str, postal_code
 
     aggregated: list[dict] = []
     seen_keys = set()
-    per_batch = min(100, max(10, limit // 4))
+    # Incrementar tamaño por lote para recoger más resultados
+    per_batch = min(100, max(25, limit // 3))
 
     base_modifiers = [
         "",
+        # Variaciones geográficas y sinónimos frecuentes
         "centro", "norte", "sur", "este", "oeste",
-        "cerca", "próximo", "local", "zona",
-        "tienda", "negocio", "empresa", "comercio",
-        "servicio", "profesional", "especialista"
+        "cerca", "próximo", "local", "zona", "cercano", "alrededor",
+        # Términos comerciales y sinónimos
+        "tienda", "negocio", "empresa", "comercio", "establecimiento",
+        # Términos de servicio y profesionales
+        "servicio", "profesional", "especialista", "proveedor",
+        # Formatos alternativos al CP, por si la fuente responde mejor a "código postal" explícito
+        "codigo postal", "cp",
     ]
 
     country_specific = []
     if country == 'ES':
-        country_specific = ["barrio", "distrito", "municipio", "localidad", "pueblo"]
+        country_specific = [
+            "barrio", "distrito", "municipio", "localidad", "pueblo",
+            "provincia", "comunidad", "area metropolitana"
+        ]
         country_name = "España"
     elif country == 'FR':
         country_specific = ["quartier", "arrondissement", "commune", "ville"]
@@ -613,11 +635,11 @@ def scrape_businesses_by_city_and_category(city: str, category: str, postal_code
             q = f"{category} {city} {country_name}".strip()
         elif mod in ["centro", "norte", "sur", "este", "oeste"]:
             q = f"{category} {city} {mod} {country_name}".strip()
-        elif mod in ["cerca", "próximo", "local", "zona"]:
+        elif mod in ["cerca", "próximo", "local", "zona", "cercano", "alrededor"]:
             q = f"{category} {mod} {city} {country_name}".strip()
-        elif mod in ["tienda", "negocio", "empresa", "comercio"]:
+        elif mod in ["tienda", "negocio", "empresa", "comercio", "establecimiento"]:
             q = f"{mod} {category} {city} {country_name}".strip()
-        elif mod in ["servicio", "profesional", "especialista"]:
+        elif mod in ["servicio", "profesional", "especialista", "proveedor"]:
             q = f"{category} {mod} {city} {country_name}".strip()
         else:
             q = f"{category} {mod} {city} {country_name}".strip()
@@ -660,8 +682,28 @@ def scrape_businesses_by_city_and_category(city: str, category: str, postal_code
             website = item.get("website")
             address = item.get("address") or item.get("streetAddress") or item.get("fullAddress")
 
-            addr_l = (address or "").lower()
-            city_ok = city.lower() in addr_l
+            # Normalizar acentos para matching robusto de ciudad/pueblo
+            import unicodedata
+            def _norm(s):
+                try:
+                    return ''.join(c for c in unicodedata.normalize('NFD', (s or '').lower()) if unicodedata.category(c) != 'Mn')
+                except Exception:
+                    return (s or '').lower()
+
+            addr_l = _norm(address)
+            city_norm = _norm(city)
+
+            # Considerar múltiples campos de localidad que puede devolver Serper
+            locality_fields = [
+                (item.get('locality') or ''),
+                (item.get('city') or ''),
+                (item.get('suburb') or ''),
+                (item.get('municipality') or ''),
+                (item.get('region') or ''),
+            ]
+            locality_norms = [_norm(x) for x in locality_fields if x]
+
+            city_ok = (city_norm in addr_l) or any(city_norm in ln for ln in locality_norms)
 
             # Si se especificó CP, también verificarlo
             postal_ok = True
