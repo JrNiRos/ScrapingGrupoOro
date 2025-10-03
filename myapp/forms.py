@@ -12,6 +12,7 @@ COUNTRY_CHOICES = [
 
 
 class SearchForm(forms.Form):
-    postal_code = forms.CharField(label='Código postal', max_length=10, widget=forms.TextInput(attrs={'placeholder': '28001'}))
+    city = forms.CharField(label='Ciudad', max_length=120, widget=forms.TextInput(attrs={'placeholder': 'p. ej. Madrid'}))
+    postal_code = forms.CharField(label='Código postal (opcional)', max_length=10, required=False, widget=forms.TextInput(attrs={'placeholder': '28001'}))
     category = forms.CharField(label='Categoría', max_length=120, widget=forms.TextInput(attrs={'placeholder': 'p. ej. peluquería'}))
     country = forms.ChoiceField(label='País', choices=COUNTRY_CHOICES, initial='ES')
