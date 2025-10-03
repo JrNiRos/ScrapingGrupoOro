@@ -166,56 +166,51 @@ def profile(request):
 @require_POST
 @login_required
 def start_scrape(request):
-    # Expect JSON body: {"location": "Madrid"}
+    # Body esperado: {"city": "Madrid", "postal_code": "28001" (opcional), "category": "peluquería", "country": "ES"}
     try:
         body = json.loads(request.body.decode("utf-8"))
-        # Accept postal codes containing spaces or hyphens; keep only digits
+        city = (body.get("city") or "").strip()
+        # Acepta CP con espacios/guiones; mantiene sólo dígitos salvo PT
         raw_postal = (body.get("postal_code") or "")
-        postal_code = ''.join(ch for ch in raw_postal if ch.isalnum())[:10]
+        postal_code = ''.join(ch for ch in raw_postal if ch.isdigit())[:10]
         category = (body.get("category") or "").strip()
         country = (body.get("country") or "ES").strip().upper()
-        limit = 500  # Aumentar límite para obtener más resultados
+        limit = 500
     except Exception:
         return HttpResponseBadRequest("JSON inválido")
 
-    if not postal_code or not category:
-        return HttpResponseBadRequest("El código postal y la categoría son obligatorios")
+    if not city or not category:
+        return HttpResponseBadRequest("La ciudad y la categoría son obligatorias")
     import re
-    # Validación específica por país para mayor precisión
-    if country == 'ES':
-        # España: 5 dígitos y prefijo provincial 01-52
-        if not re.fullmatch(r"\d{5}", postal_code):
-            return HttpResponseBadRequest("El código postal debe tener 5 dígitos (España)")
-        try:
-            province = int(postal_code[:2])
-        except Exception:
-            return HttpResponseBadRequest("Código postal inválido")
-        if province < 1 or province > 52:
-            return HttpResponseBadRequest("El código postal debe pertenecer a España (prefijo 01–52)")
-    elif country == 'FR':
-        # Francia: 5 dígitos
-        if not re.fullmatch(r"\d{5}", postal_code):
-            return HttpResponseBadRequest("El código postal debe tener 5 dígitos (Francia)")
-    elif country == 'DE':
-        # Alemania: 5 dígitos
-        if not re.fullmatch(r"\d{5}", postal_code):
-            return HttpResponseBadRequest("El código postal debe tener 5 dígitos (Alemania)")
-    elif country == 'IT':
-        # Italia: 5 dígitos
-        if not re.fullmatch(r"\d{5}", postal_code):
-            return HttpResponseBadRequest("El código postal debe tener 5 dígitos (Italia)")
-    elif country == 'BE':
-        # Bélgica: 4 dígitos
-        if not re.fullmatch(r"\d{4}", postal_code):
-            return HttpResponseBadRequest("El código postal debe tener 4 dígitos (Bélgica)")
-    elif country == 'PT':
-        # Portugal: XXXX-XXX o XXXXXXX
-        if not re.fullmatch(r"\d{4}-?\d{3}", postal_code):
-            return HttpResponseBadRequest("El código postal debe tener formato XXXX-XXX (Portugal)")
-    else:
-        # Para otros países: validación genérica
-        if not postal_code or len(postal_code) < 3 or len(postal_code) > 10:
-            return HttpResponseBadRequest("Introduce un código postal válido para el país seleccionado")
+    # Validación específica por país (sólo si se proporciona código postal)
+    if postal_code:
+        if country == 'ES':
+            if not re.fullmatch(r"\d{5}", postal_code):
+                return HttpResponseBadRequest("El código postal debe tener 5 dígitos (España)")
+            try:
+                province = int(postal_code[:2])
+            except Exception:
+                return HttpResponseBadRequest("Código postal inválido")
+            if province < 1 or province > 52:
+                return HttpResponseBadRequest("El código postal debe pertenecer a España (prefijo 01–52)")
+        elif country == 'FR':
+            if not re.fullmatch(r"\d{5}", postal_code):
+                return HttpResponseBadRequest("El código postal debe tener 5 dígitos (Francia)")
+        elif country == 'DE':
+            if not re.fullmatch(r"\d{5}", postal_code):
+                return HttpResponseBadRequest("El código postal debe tener 5 dígitos (Alemania)")
+        elif country == 'IT':
+            if not re.fullmatch(r"\d{5}", postal_code):
+                return HttpResponseBadRequest("El código postal debe tener 5 dígitos (Italia)")
+        elif country == 'BE':
+            if not re.fullmatch(r"\d{4}", postal_code):
+                return HttpResponseBadRequest("El código postal debe tener 4 dígitos (Bélgica)")
+        elif country == 'PT':
+            if not re.fullmatch(r"\d{4}-?\d{3}", postal_code):
+                return HttpResponseBadRequest("El código postal debe tener formato XXXX-XXX (Portugal)")
+        else:
+            if len(postal_code) < 3 or len(postal_code) > 10:
+                return HttpResponseBadRequest("Introduce un código postal válido para el país seleccionado")
     # Clamp for safety - aumentar límite máximo para más resultados
     if limit < 1:
         limit = 1
@@ -237,7 +232,8 @@ def start_scrape(request):
     # Persist the search tied to the user
     search = Search.objects.create(
         user=request.user,
-        postal_code=postal_code,
+        city=city,
+        postal_code=(postal_code or None),
         category=category,
         country=country,
         job_id=job_id,
@@ -250,7 +246,7 @@ def start_scrape(request):
     def worker():
         try:
             JOBS[job_id]["status"] = "running"
-            data_by_area = scrape_businesses_by_cp_and_category(postal_code, category, limit, effective_api_key, country=country)
+            data_by_area = scrape_businesses_by_city_and_category(city, category, postal_code=(postal_code or None), limit=limit, api_key=effective_api_key, country=country)
             # Ensure at least one sheet
             if not data_by_area:
                 data_by_area = {"Sin datos": []}
@@ -538,6 +534,178 @@ def scrape_businesses_by_cp_and_category(postal_code: str, category: str, limit:
             })
             # No cortar aquí - permitir que se procesen todos los modificadores
         # Solo verificar límite entre diferentes modificadores para mejor distribución
+        if len(aggregated) >= limit:
+            break
+
+    if not aggregated:
+        return {}
+
+    return {"Resultados": aggregated[:limit]}
+
+
+def scrape_businesses_by_city_and_category(city: str, category: str, postal_code: str | None = None, limit: int = 20, api_key: str | None = None, country: str = 'ES'):
+    """Scraping por ciudad obligatoria y CP opcional usando Serper (Google Local).
+    Si se proporciona `postal_code`, se usa para afinar y filtrar resultados; si no,
+    se busca por ciudad completa.
+    """
+    if not api_key:
+        raise RuntimeError("Falta SERPER_API_KEY en settings")
+
+    url = "https://google.serper.dev/places"
+    headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
+
+    aggregated: list[dict] = []
+    seen_keys = set()
+    per_batch = min(100, max(10, limit // 4))
+
+    base_modifiers = [
+        "",
+        "centro", "norte", "sur", "este", "oeste",
+        "cerca", "próximo", "local", "zona",
+        "tienda", "negocio", "empresa", "comercio",
+        "servicio", "profesional", "especialista"
+    ]
+
+    country_specific = []
+    if country == 'ES':
+        country_specific = ["barrio", "distrito", "municipio", "localidad", "pueblo"]
+        country_name = "España"
+    elif country == 'FR':
+        country_specific = ["quartier", "arrondissement", "commune", "ville"]
+        country_name = "France"
+    elif country == 'DE':
+        country_specific = ["stadtteil", "bezirk", "gemeinde", "stadt"]
+        country_name = "Germany"
+    elif country == 'IT':
+        country_specific = ["quartiere", "zona", "comune", "città"]
+        country_name = "Italy"
+    elif country == 'BE':
+        country_specific = ["wijk", "gemeente", "stad", "commune"]
+        country_name = "Belgium"
+    elif country == 'PT':
+        country_specific = ["bairro", "freguesia", "concelho", "cidade"]
+        country_name = "Portugal"
+    else:
+        country_name = country
+
+    query_modifiers = base_modifiers + country_specific
+
+    email_cache: dict[str, str | None] = {}
+
+    gl = (country or 'ES').lower()
+    hl = 'es' if gl == 'es' else 'en'
+
+    for mod in query_modifiers:
+        if mod == "":
+            q = f"{category} {city} {country_name}".strip()
+        elif mod in ["centro", "norte", "sur", "este", "oeste"]:
+            q = f"{category} {city} {mod} {country_name}".strip()
+        elif mod in ["cerca", "próximo", "local", "zona"]:
+            q = f"{category} {mod} {city} {country_name}".strip()
+        elif mod in ["tienda", "negocio", "empresa", "comercio"]:
+            q = f"{mod} {category} {city} {country_name}".strip()
+        elif mod in ["servicio", "profesional", "especialista"]:
+            q = f"{category} {mod} {city} {country_name}".strip()
+        else:
+            q = f"{category} {mod} {city} {country_name}".strip()
+
+        # Incluir CP en la consulta si se proporcionó para afinar
+        if postal_code:
+            q = f"{q} {postal_code}".strip()
+
+        payload = {"q": q, "gl": gl, "hl": hl, "num": per_batch}
+
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                r = requests.post(url, headers=headers, data=json.dumps(payload), timeout=45)
+                if r.status_code == 401:
+                    raise RuntimeError("API key de Serper inválida o sin permisos")
+                if r.status_code == 404:
+                    break
+                if r.status_code == 429:
+                    if attempt < max_retries:
+                        import time
+                        time.sleep(2 ** attempt)
+                        continue
+                    else:
+                        break
+                r.raise_for_status()
+                data = r.json()
+                results = data.get("places") or data.get("localResults") or data.get("placeResults") or []
+                break
+            except Exception:
+                if attempt < max_retries:
+                    continue
+                else:
+                    results = []
+                    break
+
+        for item in results:
+            name = item.get("title") or item.get("name")
+            phone = item.get("phoneNumber") or item.get("phone")
+            website = item.get("website")
+            address = item.get("address") or item.get("streetAddress") or item.get("fullAddress")
+
+            addr_l = (address or "").lower()
+            city_ok = city.lower() in addr_l
+
+            # Si se especificó CP, también verificarlo
+            postal_ok = True
+            if postal_code:
+                postal_ok = False
+                if address:
+                    import re
+                    if country == 'ES':
+                        postal_pattern = rf"\b{re.escape(postal_code)}\b"
+                        if re.search(postal_pattern, addr_l):
+                            postal_ok = True
+                    else:
+                        postal_clean = postal_code.replace(' ', '').replace('-', '')
+                        addr_clean = addr_l.replace(' ', '').replace('-', '')
+                        if postal_clean in addr_clean:
+                            postal_pattern = rf"\b{re.escape(postal_code)}\b"
+                            if re.search(postal_pattern, addr_l):
+                                postal_ok = True
+
+            if not (city_ok and postal_ok):
+                continue
+
+            # Deduplicación por nombre+dirección/teléfono
+            name_clean = (name or '').strip().lower()
+            address_clean = (address or '').strip().lower()
+            phone_clean = (phone or '').strip().lower()
+            website_clean = (website or '').strip().lower()
+            keys = [
+                f"{name_clean}|{address_clean}",
+                f"{name_clean}|{phone_clean}" if phone_clean and phone_clean != '-' else None,
+                f"{address_clean}|{phone_clean}" if phone_clean and phone_clean != '-' else None,
+            ]
+            if any(k and k in seen_keys for k in keys):
+                continue
+            for k in keys:
+                if k:
+                    seen_keys.add(k)
+
+            email_value: str | None = None
+            try:
+                if website:
+                    w = website.strip()
+                    cached = email_cache.get(w)
+                    if cached is None:
+                        cached = fetch_email_from_website(w)
+                        email_cache[w] = cached
+                    email_value = cached
+            except Exception:
+                email_value = None
+
+            aggregated.append({
+                "name": name or "-",
+                "phone": phone or "-",
+                "email": (email_value or "-"),
+                "address": address or (website or "-"),
+            })
+
         if len(aggregated) >= limit:
             break
 

@@ -4,13 +4,18 @@
 <div class="dashboard-container">
   <div class="search-container">
     <div class="search-header">
-      <h1>Búsqueda por Código Postal y Categoría</h1>
-      <p>Introduce un <strong>CP exacto</strong> y el <strong>tipo de negocio</strong> que buscas. Obtendremos <strong>todos los resultados posibles</strong> del código postal seleccionado y generaremos un Excel completo.</p>
+      <h1>Búsqueda por Ciudad y Categoría</h1>
+      <p>Introduce la <strong>ciudad</strong> y el <strong>tipo de negocio</strong> que buscas. Opcionalmente, puedes indicar un <strong>código postal</strong> para afinar la búsqueda. Generaremos un Excel con los resultados.</p>
     </div>
 
     <form id="scrape-form" onsubmit="return false;" class="search-form">
       <div class="form-group">
-        <label for="postal_code" class="form-label">Código Postal</label>
+        <label for="city" class="form-label">Ciudad</label>
+        <input id="city" name="city" type="text" placeholder="Ej. Madrid, Barcelona, Valencia" aria-label="Ciudad" class="input-field" />
+      </div>
+
+      <div class="form-group">
+        <label for="postal_code" class="form-label">Código Postal (opcional)</label>
         <input id="postal_code" name="postal_code" type="text" inputmode="numeric" maxlength="8" placeholder="28001" aria-label="Código postal" class="input-field" />
         <small id="postal-hint" class="text-xs text-gray-400 mt-1">España: 5 dígitos (ej. 28001)</small>
       </div>
@@ -52,6 +57,7 @@
   <script>
     const form = document.getElementById('scrape-form');
     const postalCodeInput = document.getElementById('postal_code');
+    const cityInput = document.getElementById('city');
   const categoryInput = document.getElementById('category');
   const categoryOther = document.getElementById('category_other');
     const submitBtn = document.getElementById('submit');
@@ -167,6 +173,7 @@
     }
 
     resetBtn.addEventListener('click', () => {
+      cityInput.value = '';
       postalCodeInput.value = '';
       categoryInput.value = '';
       statusEl.textContent = '';
@@ -206,7 +213,14 @@
     });
 
     form.addEventListener('submit', async () => {
-      // Get postal code preserving format for Portugal
+      // Validar ciudad obligatoria
+      const city = (cityInput.value || '').trim();
+      if (!city || city.length < 2) {
+        statusEl.textContent = 'Introduce una ciudad válida';
+        return;
+      }
+
+      // Obtener código postal en formato adecuado según país (opcional)
       let postal_code = postalCodeInput.value.trim();
       if (countryHidden.value === 'PT') {
         // For Portugal, preserve the hyphen format
@@ -221,46 +235,38 @@
       if (category === 'otro' || category === 'Otro') {
         category = categoryOther.value.trim();
       }
-      // Validación específica por país para mayor precisión
-      if (country === 'ES') {
-        if (!/^\d{5}$/.test(postal_code)) {
-          statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (España)';
-          return;
-        }
-        const province = parseInt(postal_code.slice(0, 2), 10);
-        if (Number.isNaN(province) || province < 1 || province > 52) {
-          statusEl.textContent = 'Introduce un código postal español válido (prefijo 01–52)';
-          return;
-        }
-      } else if (country === 'FR') {
-        if (!/^\d{5}$/.test(postal_code)) {
-          statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (Francia)';
-          return;
-        }
-      } else if (country === 'DE') {
-        if (!/^\d{5}$/.test(postal_code)) {
-          statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (Alemania)';
-          return;
-        }
-      } else if (country === 'IT') {
-        if (!/^\d{5}$/.test(postal_code)) {
-          statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (Italia)';
-          return;
-        }
-      } else if (country === 'BE') {
-        if (!/^\d{4}$/.test(postal_code)) {
-          statusEl.textContent = 'Introduce un código postal válido de 4 dígitos (Bélgica)';
-          return;
-        }
-      } else if (country === 'PT') {
-        if (!/^\d{4}-?\d{3}$/.test(postal_code)) {
-          statusEl.textContent = 'Introduce un código postal válido formato XXXX-XXX (Portugal)';
-          return;
-        }
-      } else {
-        if (!postal_code || postal_code.length < 3) {
-          statusEl.textContent = 'Introduce un código postal válido para el país seleccionado';
-          return;
+      // Validación específica por país (solo si se proporciona CP)
+      if (postal_code) {
+        if (country === 'ES') {
+          if (!/^\d{5}$/.test(postal_code)) {
+            statusEl.textContent = 'Introduce un código postal válido de 5 dígitos (España)';
+            return;
+          }
+          const province = parseInt(postal_code.slice(0, 2), 10);
+          if (Number.isNaN(province) || province < 1 || province > 52) {
+            statusEl.textContent = 'Introduce un código postal español válido (prefijo 01–52)';
+            return;
+          }
+        } else if (country === 'FR' || country === 'DE' || country === 'IT') {
+          if (!/^\d{5}$/.test(postal_code)) {
+            statusEl.textContent = 'Introduce un código postal válido de 5 dígitos';
+            return;
+          }
+        } else if (country === 'BE') {
+          if (!/^\d{4}$/.test(postal_code)) {
+            statusEl.textContent = 'Introduce un código postal válido de 4 dígitos (Bélgica)';
+            return;
+          }
+        } else if (country === 'PT') {
+          if (!/^\d{4}-?\d{3}$/.test(postal_code)) {
+            statusEl.textContent = 'Introduce un código postal válido formato XXXX-XXX (Portugal)';
+            return;
+          }
+        } else {
+          if (postal_code.length < 3) {
+            statusEl.textContent = 'Introduce un código postal válido para el país seleccionado';
+            return;
+          }
         }
       }
       if (!category) {
@@ -278,7 +284,7 @@
             'X-CSRFToken': getCookie('csrftoken'),
           },
           credentials: 'same-origin',
-          body: JSON.stringify({ postal_code, category, country }),
+          body: JSON.stringify({ city, postal_code, category, country }),
         });
         if (!resp.ok) {
           const txt = await resp.text();

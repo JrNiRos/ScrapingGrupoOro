@@ -74,7 +74,8 @@ class Search(models.Model):
 
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='searches')
-    postal_code = models.CharField(max_length=5)
+    city = models.CharField(max_length=120)
+    postal_code = models.CharField(max_length=10, blank=True, null=True)
     category = models.CharField(max_length=120)
     # ISO 3166-1 alpha-2 country code (ej: 'ES', 'US')
     country = models.CharField(max_length=2, default='ES')
@@ -88,6 +89,7 @@ class Search(models.Model):
         ordering = ('-created_at',)
 
     def __str__(self):
-        return f"{self.category} @ {self.postal_code} ({self.status})"
+        cp = self.postal_code or "-"
+        return f"{self.category} @ {self.city} {cp} ({self.status})"
 
 # Create your models here.
